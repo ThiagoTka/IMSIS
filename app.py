@@ -141,6 +141,21 @@ with app.app_context():
 # ------------------------------------------------------------------------------
 # ROUTES
 # ------------------------------------------------------------------------------
+
+@app.route("/test-db")
+def test_db():
+    try:
+        db.session.execute(
+            text("INSERT INTO teste_tabela_1 (nome) VALUES ('CloudRun OK')")
+        )
+        db.session.commit()
+        return "INSERT OK - Cloud Run gravou no banco"
+    except Exception as e:
+        return f"ERRO: {e}", 500
+
+
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
