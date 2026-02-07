@@ -22,12 +22,9 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "chave-secreta-dev")
 
 # ------------------------------------------------------------------------------
 # DATABASE CONFIG
-# Prioridade:
-# 1) DATABASE_URL
-# 2) Cloud SQL Unix Socket
-# 3) SQLite local
 # ------------------------------------------------------------------------------
 if os.environ.get("DATABASE_URL"):
+    # Ex: Railway, Render, etc
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"]
 
 elif (
@@ -36,17 +33,16 @@ elif (
     and os.environ.get("DB_NAME")
     and os.environ.get("CLOUD_SQL_CONNECTION_NAME")
 ):
-    db_user = os.environ["DB_USER"]
-    db_pass = os.environ["DB_PASS"]
-    db_name = os.environ["DB_NAME"]
-    cloud_sql_instance = os.environ["CLOUD_SQL_CONNECTION_NAME"]
-
-    app.config[
-        "SQLALCHEMY_DATABASE_URI"
-    ] = f"postgresql+psycopg2://{db_user}:{db_pass}@/{db_name}?host=/cloudsql/{cloud_sql_instance}"
+    # Cloud Run + Cloud SQL (Postgres)
+    app.config["SQLALCHEMY_DATABASE_URI"] = (
+        f"postgresql+psycopg2://"
+        f"{os.environ['DB_USER']}:{os.environ['DB_PASS']}"
+        f"@/{os.environ['DB_NAME']}"
+        f"?host=/cloudsql/{os.environ['CLOUD_SQL_CONNECTION_NAME']}"
+    )
 
 else:
-    # fallback local
+    # Local DEV
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///tarefas.db"
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -82,6 +78,14 @@ class Atividade(db.Model):
     data_liberacao = db.Column(db.DateTime)
     data_conclusao = db.Column(db.DateTime)
 
+
+class TesteTabela1(db.Model):
+    __tablename__ = "teste_tabela_1"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.Text, nullable=False)
+
+
 # ------------------------------------------------------------------------------
 # LOGIN
 # ------------------------------------------------------------------------------
@@ -89,71 +93,73 @@ class Atividade(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+
 # ------------------------------------------------------------------------------
-# DB INIT  ✅ ESSA É A PARTE QUE FALTAVA
+# DB INIT
 # ------------------------------------------------------------------------------
 def criar_tabelas_e_dados():
-    db.create_all()
+    try:
+        db.create_all()
 
-    # usuários iniciais
-    if not User.query.first():
-        usuarios = [
-            ("Alice", "alice@example.com"),
-            ("Bob", "bob@example.com"),
-            ("Carlos", "carlos@example.com"),
-        ]
+        if not User.query.first():
+            usuarios = [
+                ("Alice", "alice@example.com"),
+                ("Bob", "bob@example.com"),
+                ("Carlos", "carlos@example.com"),
+            ]
 
-        for nome, email in usuarios:
-            user = User(
-                username=nome,
-                email=email,
-                password=generate_password_hash("123"),
-            )
-            db.session.add(user)
+            for nome, email in usuarios:
+                db.session.add(
+                    User(
+                        username=nome,
+                        email=email,
+                        password=generate_password_hash("123"),
+                    )
+                )
 
-        db.session.commit()
+            db.session.commit()
 
-    # atividades iniciais
-    if not Atividade.query.first():
-        atividades = [
-            (1, "Levantamento de Requisitos", "Alice", True),
-            (2, "Desenvolvimento Backend", "Bob", False),
-            (3, "Desenvolvimento Frontend", "Carlos", False),
-            (4, "Deploy em Produção", "Alice", False),
-        ]
+        if not Atividade.query.first():
+            atividades = [
+                (1, "Levantamento de Requisitos", "Alice", True),
+                (2, "Desenvolvimento Backend", "Bob", False),
+                (3, "Desenvolvimento Frontend", "Carlos", False),
+                (4, "Deploy em Produção", "Alice", False),
+            ]
 
-        for seq, desc, resp, liberado in atividades:
-            a = Atividade(
-                numero_sequencial=seq,
-                descricao=desc,
-                responsavel=resp,
-                data_liberacao=datetime.now() if liberado else None,
-            )
-            db.session.add(a)
+            for seq, desc, resp, liberado in atividades:
+                db.session.add(
+                    Atividade(
+                        numero_sequencial=seq,
+                        descricao=desc,
+                        responsavel=resp,
+                        data_liberacao=datetime.now() if liberado else None,
+                    )
+                )
 
-        db.session.commit()
+            db.session.commit()
+
+    except Exception as e:
+        print("ERRO AO INICIALIZAR DB:", e)
 
 
-# 🔥 ISSO GARANTE QUE RODA NO CLOUD RUN
+# 🔥 Executa sempre que o container sobe
 with app.app_context():
     criar_tabelas_e_dados()
+
 
 # ------------------------------------------------------------------------------
 # ROUTES
 # ------------------------------------------------------------------------------
-
 @app.route("/test-db")
 def test_db():
     try:
-        db.session.execute(
-            text("INSERT INTO teste_tabela_1 (nome) VALUES ('CloudRun OK')")
-        )
+        registro = TesteTabela1(nome="Cloud Run OK")
+        db.session.add(registro)
         db.session.commit()
-        return "INSERT OK - Cloud Run gravou no banco"
+        return "INSERT OK - gravou no Cloud SQL"
     except Exception as e:
-        return f"ERRO: {e}", 500
-
-
+        return f"ERRO DB: {e}", 500
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -166,9 +172,8 @@ def register():
             flash("E-mail já cadastrado")
             return redirect(url_for("register"))
 
-        username = email.split("@")[0]
         user = User(
-            username=username,
+            username=email.split("@")[0],
             email=email,
             password=generate_password_hash(password),
         )
@@ -217,35 +222,6 @@ def index():
     )
 
 
-@app.route("/concluir/<int:id>", methods=["POST"])
-@login_required
-def concluir(id):
-    atividade = Atividade.query.get_or_404(id)
-
-    if atividade.responsavel != current_user.username:
-        flash("Você não é o responsável por esta atividade")
-        return redirect(url_for("index"))
-
-    if not atividade.data_liberacao:
-        flash("Atividade ainda não liberada")
-        return redirect(url_for("index"))
-
-    atividade.data_conclusao = datetime.now()
-
-    proxima = Atividade.query.filter_by(
-        numero_sequencial=atividade.numero_sequencial + 1
-    ).first()
-
-    if proxima:
-        proxima.data_liberacao = datetime.now()
-
-    db.session.commit()
-    return redirect(url_for("index"))
-
-
-# ------------------------------------------------------------------------------
-# HEALTH CHECK
-# ------------------------------------------------------------------------------
 @app.route("/health")
 def health():
     db.session.execute(text("SELECT 1"))
@@ -253,7 +229,7 @@ def health():
 
 
 # ------------------------------------------------------------------------------
-# ENTRYPOINT LOCAL
+# ENTRYPOINT
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
