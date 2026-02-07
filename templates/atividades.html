@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Atividades - {{ cenario.cenario }}</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .disabled { color: #999; }
+        .success { color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Atividades do Cenário: {{ cenario.cenario }}</h1>
+    <div>
+        <a href="/cenarios">← Voltar para Cenários</a>
+        <span style="float: right;"><strong>Logado como:</strong> {{ usuario_atual }}</span>
+    </div>
+
+    <h3>Adicionar Atividade</h3>
+    <form method="POST" style="margin-bottom:16px;">
+        <input type="number" name="numero_sequencial" placeholder="Número seq" required style="padding:6px; width:120px;">
+        <input type="text" name="descricao" placeholder="Descrição" required style="padding:6px; width:300px;">
+        <select name="responsavel" required style="padding:6px; width:180px;">
+            <option value="" disabled selected>Responsável</option>
+            {% for u in usuarios %}
+            <option value="{{ u.username }}">{{ u.username }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Adicionar</button>
+    </form>
+
+    <table>
+        <tr>
+            <th>Seq</th>
+            <th>Atividade</th>
+            <th>Responsável</th>
+            <th>Liberada em</th>
+            <th>Concluída em</th>
+            <th>Ação</th>
+        </tr>
+        {% for atv in atividades %}
+        <tr class="{% if not atv.data_liberacao %}disabled{% endif %}">
+            <td>{{ atv.numero_sequencial }}</td>
+            <td>{{ atv.descricao }}</td>
+            <td>{{ atv.responsavel }}</td>
+            <td>{{ atv.data_liberacao.strftime('%d/%m %H:%M') if atv.data_liberacao else 'Aguardando Anterior' }}</td>
+            <td>
+                {% if atv.data_conclusao %}
+                    <span class="success">{{ atv.data_conclusao.strftime('%d/%m %H:%M') }}</span>
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td>
+                {% if not atv.data_conclusao %}
+                    <form action="/concluir/{{ atv.id }}" method="POST" style="display:inline-block;">
+                        <input type="hidden" name="usuario_atual" value="{{ usuario_atual }}">
+                        <button type="submit" {% if not atv.data_liberacao or atv.responsavel != usuario_atual %}disabled{% endif %}>Concluir</button>
+                    </form>
+                {% else %}
+                    Concluído
+                {% endif %}
+                <form action="/atividades/{{ atv.id }}/delete" method="POST" style="display:inline-block; margin-left:8px;">
+                    <button type="submit" onclick="return confirm('Excluir esta atividade?')">Excluir</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
