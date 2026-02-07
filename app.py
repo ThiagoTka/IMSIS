@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from urllib.parse import quote_plus
 
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
@@ -20,30 +21,22 @@ from sqlalchemy import text
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "chave-secreta-dev")
 
-# ------------------------------------------------------------------------------
 # DATABASE CONFIG
-# ------------------------------------------------------------------------------
 if os.environ.get("DATABASE_URL"):
-    # Ex: Railway, Render, etc
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"]
-
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 elif (
     os.environ.get("DB_USER")
     and os.environ.get("DB_PASS")
     and os.environ.get("DB_NAME")
     and os.environ.get("CLOUD_SQL_CONNECTION_NAME")
 ):
-    # Cloud Run + Cloud SQL (Postgres)
-    app.config["SQLALCHEMY_DATABASE_URI"] = (
-        f"postgresql+psycopg2://"
-        f"{os.environ['DB_USER']}:{os.environ['DB_PASS']}"
-        f"@/{os.environ['DB_NAME']}"
-        f"?host=/cloudsql/{os.environ['CLOUD_SQL_CONNECTION_NAME']}"
-    )
-
+    db_user = os.environ.get("DB_USER")
+    db_pass = quote_plus(os.environ.get("DB_PASS"))  # URL-encode the password
+    db_name = os.environ.get("DB_NAME")
+    cloud_sql_connection_name = os.environ.get("CLOUD_SQL_CONNECTION_NAME")
+    app.config["SQLALCHEMY_DATABASE_URI"] = f"postgresql+psycopg2://{db_user}:{db_pass}@/{db_name}?host=/cloudsql/{cloud_sql_connection_name}"
 else:
-    # Local DEV
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///tarefas.db"
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///dev.db"
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -151,6 +144,18 @@ with app.app_context():
 # ------------------------------------------------------------------------------
 # ROUTES
 # ------------------------------------------------------------------------------
+
+@app.route("/db-check")
+def db_check():
+    result = db.session.execute(text("SELECT current_database(), current_user"))
+    row = result.fetchone()
+    return f"DB={row[0]} | USER={row[1]}"
+
+
+@app.route("/where-db")
+def where_db():
+    return app.config["SQLALCHEMY_DATABASE_URI"]
+
 @app.route("/test-db")
 def test_db():
     try:

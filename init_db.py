@@ -1,5 +1,5 @@
-from app import app, criar_tabelas_e_dados
+from app import app, db
 
 with app.app_context():
-    criar_tabelas_e_dados()
-    print("Tabelas criadas com sucesso!")
+    db.create_all()
+    print("✅ Tabelas criadas com sucesso")
