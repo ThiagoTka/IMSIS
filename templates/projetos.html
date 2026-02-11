@@ -100,7 +100,7 @@
                     <a href="{{ url_for('fluxo', projeto_id=p.id) }}" style="text-decoration: none;">
                         <button class="btn-action btn-action-primary" type="button">Acessar Projeto</button>
                     </a>
-                    <button class="btn-action" type="button" onclick="toggleMenu({{ p.id }})">Gerenciar</button>
+                    <button class="btn-action btn-gerenciar" type="button" data-projeto-id="{{ p.id }}">Gerenciar</button>
                 </div>
 
                 <div id="menu-{{ p.id }}" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
@@ -155,6 +155,16 @@
         document.getElementById('modalCriar').addEventListener('click', function(e) {
             if (e.target === this) {
                 fecharModalCriar();
+            }
+        });
+
+        // Event delegation para botões de gerenciar
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('btn-gerenciar')) {
+                const projetoId = e.target.getAttribute('data-projeto-id');
+                if (projetoId) {
+                    toggleMenu(projetoId);
+                }
             }
         });
     </script>

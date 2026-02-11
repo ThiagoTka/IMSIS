@@ -126,6 +126,36 @@ class Cenario(db.Model):
     fase = db.relationship("Fase", backref=db.backref("cenarios", lazy=True))
 
 
+class Perfil(db.Model):
+    __tablename__ = "perfis"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    projeto_id = db.Column(db.Integer, db.ForeignKey("projetos.id"), nullable=False)
+    projeto = db.relationship("Projeto", backref=db.backref("perfis", lazy=True))
+    
+    # Permissões
+    pode_criar_atividade = db.Column(db.Boolean, default=True)
+    pode_editar_atividade = db.Column(db.Boolean, default=True)
+    pode_excluir_atividade = db.Column(db.Boolean, default=False)
+    pode_concluir_qualquer_atividade = db.Column(db.Boolean, default=False)
+    pode_editar_projeto = db.Column(db.Boolean, default=False)
+    pode_gerenciar_membros = db.Column(db.Boolean, default=False)
+    
+    is_default = db.Column(db.Boolean, default=False)  # Para perfis padrão
+
+
+class MembroPerfil(db.Model):
+    __tablename__ = "membro_perfis"
+
+    id = db.Column(db.Integer, primary_key=True)
+    projeto_membro_id = db.Column(db.Integer, db.ForeignKey("projeto_membros.id"), nullable=False)
+    perfil_id = db.Column(db.Integer, db.ForeignKey("perfis.id"), nullable=False)
+    
+    projeto_membro = db.relationship("ProjetoMembro", backref=db.backref("perfil_associacao", lazy=True))
+    perfil = db.relationship("Perfil", backref=db.backref("membros", lazy=True))
+
+
 # ------------------------------------------------------------------------------
 # LOGIN
 # ------------------------------------------------------------------------------
@@ -140,6 +170,33 @@ def is_project_member(projeto_id, user_id=None):
         ProjetoMembro.query.filter_by(projeto_id=projeto_id, user_id=uid).first()
         is not None
     )
+
+
+def get_user_permissions(projeto_id, user_id=None):
+    """Retorna as permissões do usuário no projeto"""
+    uid = user_id or current_user.id
+    membro = ProjetoMembro.query.filter_by(projeto_id=projeto_id, user_id=uid).first()
+    
+    if not membro:
+        return None
+    
+    # Buscar perfil do membro
+    perfil_associacao = MembroPerfil.query.filter_by(projeto_membro_id=membro.id).first()
+    
+    if perfil_associacao and perfil_associacao.perfil:
+        return perfil_associacao.perfil
+    
+    return None
+
+
+def has_permission(projeto_id, permission_name, user_id=None):
+    """Verifica se o usuário tem uma permissão específica no projeto"""
+    perfil = get_user_permissions(projeto_id, user_id)
+    
+    if not perfil:
+        return False
+    
+    return getattr(perfil, permission_name, False)
 
 
 def get_fase_for_cenario_or_none(cenario):
@@ -342,10 +399,49 @@ def projetos():
             projeto = Projeto(nome=nome)
             db.session.add(projeto)
             db.session.flush()
+            
+            # Criar perfis padrão
+            perfil_admin = Perfil(
+                nome="Administrador",
+                projeto_id=projeto.id,
+                pode_criar_atividade=True,
+                pode_editar_atividade=True,
+                pode_excluir_atividade=True,
+                pode_concluir_qualquer_atividade=True,
+                pode_editar_projeto=True,
+                pode_gerenciar_membros=True,
+                is_default=True
+            )
+            perfil_membro = Perfil(
+                nome="Membro",
+                projeto_id=projeto.id,
+                pode_criar_atividade=True,
+                pode_editar_atividade=True,
+                pode_excluir_atividade=False,
+                pode_concluir_qualquer_atividade=False,
+                pode_editar_projeto=False,
+                pode_gerenciar_membros=False,
+                is_default=True
+            )
+            db.session.add(perfil_admin)
+            db.session.add(perfil_membro)
+            db.session.flush()
+            
+            # Adicionar membros
             membros = {int(mid) for mid in membros_ids if mid.isdigit()}
             membros.add(current_user.id)
+            
             for uid in membros:
-                db.session.add(ProjetoMembro(projeto_id=projeto.id, user_id=uid))
+                membro = ProjetoMembro(projeto_id=projeto.id, user_id=uid)
+                db.session.add(membro)
+                db.session.flush()
+                
+                # Criador é admin, outros são membros
+                if uid == current_user.id:
+                    db.session.add(MembroPerfil(projeto_membro_id=membro.id, perfil_id=perfil_admin.id))
+                else:
+                    db.session.add(MembroPerfil(projeto_membro_id=membro.id, perfil_id=perfil_membro.id))
+            
             db.session.commit()
             flash("Projeto criado com sucesso")
         return redirect(url_for("projetos"))
@@ -373,11 +469,22 @@ def adicionar_membro_projeto(projeto_id):
     if not is_project_member(projeto_id):
         abort(403)
 
+    if not has_permission(projeto_id, "pode_gerenciar_membros"):
+        abort(403)
+
     user_id = request.form.get("user_id")
     if user_id and user_id.isdigit():
         uid = int(user_id)
         if User.query.get(uid) and not ProjetoMembro.query.filter_by(projeto_id=projeto_id, user_id=uid).first():
-            db.session.add(ProjetoMembro(projeto_id=projeto_id, user_id=uid))
+            membro = ProjetoMembro(projeto_id=projeto_id, user_id=uid)
+            db.session.add(membro)
+            db.session.flush()
+            
+            # Atribuir perfil padrão de Membro
+            perfil_membro = Perfil.query.filter_by(projeto_id=projeto_id, nome="Membro", is_default=True).first()
+            if perfil_membro:
+                db.session.add(MembroPerfil(projeto_membro_id=membro.id, perfil_id=perfil_membro.id))
+            
             db.session.commit()
             flash("Membro adicionado com sucesso")
     return redirect(url_for("projetos"))
@@ -388,6 +495,9 @@ def adicionar_membro_projeto(projeto_id):
 def remover_membro_projeto(projeto_id):
     Projeto.query.get_or_404(projeto_id)
     if not is_project_member(projeto_id):
+        abort(403)
+
+    if not has_permission(projeto_id, "pode_gerenciar_membros"):
         abort(403)
 
     user_id = request.form.get("user_id")
@@ -547,6 +657,10 @@ def fluxo(projeto_id):
         atividades=atividades,
         usuario_atual=current_user.username,
         usuarios=usuarios,
+        pode_concluir_qualquer=has_permission(projeto_id, 'pode_concluir_qualquer_atividade'),
+        pode_editar_atividade=has_permission(projeto_id, 'pode_editar_atividade'),
+        pode_excluir_atividade=has_permission(projeto_id, 'pode_excluir_atividade'),
+        pode_gerenciar_membros=has_permission(projeto_id, 'pode_gerenciar_membros'),
     )
 
 
@@ -647,6 +761,10 @@ def fluxo_editar_atividade(projeto_id):
     responsavel = request.form.get("responsavel")
     fase_id = request.form.get("fase_id", type=int)
     cenario_id = request.form.get("cenario_id", type=int)
+
+    if not has_permission(projeto_id, "pode_editar_atividade"):
+        flash("Você não tem permissão para editar atividades", "error")
+        return redirect(url_for("fluxo", projeto_id=projeto_id, fase=fase_id, cenario=cenario_id))
     
     if atividade_id and descricao and responsavel:
         atividade = Atividade.query.get_or_404(atividade_id)
@@ -671,6 +789,10 @@ def fluxo_excluir_atividade(projeto_id):
     atividade_id = request.form.get("atividade_id", type=int)
     fase_id = request.form.get("fase_id", type=int)
     cenario_id = request.form.get("cenario_id", type=int)
+
+    if not has_permission(projeto_id, "pode_excluir_atividade"):
+        flash("Você não tem permissão para excluir atividades", "error")
+        return redirect(url_for("fluxo", projeto_id=projeto_id, fase=fase_id, cenario=cenario_id))
     
     if atividade_id:
         atividade = Atividade.query.get_or_404(atividade_id)
@@ -694,11 +816,25 @@ def fluxo_concluir_atividade(projeto_id):
     fase_id = request.form.get("fase_id", type=int)
     cenario_id = request.form.get("cenario_id", type=int)
     
+    # Verificar se tem permissão para concluir qualquer atividade
+    pode_concluir_qualquer = has_permission(projeto_id, 'pode_concluir_qualquer_atividade')
+    
     if atividade_id:
         atividade = Atividade.query.get_or_404(atividade_id)
         cenario = Cenario.query.get_or_404(atividade.cenario_id)
         fase = Fase.query.get_or_404(cenario.fase_id)
         if fase.projeto_id == projeto_id:
+            # Verificar permissões apenas se não for admin
+            if not pode_concluir_qualquer:
+                # Verificar se é o responsável
+                if atividade.responsavel != current_user.username:
+                    flash("Apenas o responsável pode concluir esta atividade", "error")
+                    return redirect(url_for("fluxo", projeto_id=projeto_id, fase=fase_id, cenario=cenario_id))
+                # Verificar se está liberada
+                if not atividade.data_liberacao:
+                    flash("Atividade ainda não está liberada", "error")
+                    return redirect(url_for("fluxo", projeto_id=projeto_id, fase=fase_id, cenario=cenario_id))
+            
             atividade.data_conclusao = datetime.now()
             db.session.commit()
             
@@ -716,6 +852,34 @@ def fluxo_concluir_atividade(projeto_id):
                 db.session.commit()
             
             flash("Atividade concluída com sucesso", "success")
+    
+    return redirect(url_for("fluxo", projeto_id=projeto_id, fase=fase_id, cenario=cenario_id))
+
+
+@app.route("/projetos/<int:projeto_id>/reabrir_atividade", methods=["POST"])
+@login_required
+def fluxo_reabrir_atividade(projeto_id):
+    if not is_project_member(projeto_id):
+        abort(403)
+    
+    # Verificar se tem permissão de administrador
+    if not has_permission(projeto_id, 'pode_concluir_qualquer_atividade'):
+        flash("Apenas administradores podem reabrir atividades", "error")
+        return redirect(url_for("fluxo", projeto_id=projeto_id))
+    
+    atividade_id = request.form.get("atividade_id", type=int)
+    fase_id = request.form.get("fase_id", type=int)
+    cenario_id = request.form.get("cenario_id", type=int)
+    
+    if atividade_id:
+        atividade = Atividade.query.get_or_404(atividade_id)
+        cenario = Cenario.query.get_or_404(atividade.cenario_id)
+        fase = Fase.query.get_or_404(cenario.fase_id)
+        
+        if fase.projeto_id == projeto_id and atividade.data_conclusao:
+            atividade.data_conclusao = None
+            db.session.commit()
+            flash("Atividade reaberta com sucesso", "success")
     
     return redirect(url_for("fluxo", projeto_id=projeto_id, fase=fase_id, cenario=cenario_id))
 
@@ -853,6 +1017,9 @@ def atividades_por_cenario(projeto_id, fase_id, cenario_id):
         atividades=atividades,
         usuario_atual=current_user.username,
         usuarios=usuarios,
+        pode_concluir_qualquer=has_permission(projeto_id, 'pode_concluir_qualquer_atividade'),
+        pode_editar_atividade=has_permission(projeto_id, 'pode_editar_atividade'),
+        pode_excluir_atividade=has_permission(projeto_id, 'pode_excluir_atividade'),
     )
 
 
@@ -891,6 +1058,19 @@ def editar_atividade(atividade_id):
     if not fase or not is_project_member(fase.projeto_id):
         abort(403)
 
+    if not has_permission(fase.projeto_id, "pode_editar_atividade"):
+        flash("Você não tem permissão para editar atividades", "error")
+        if cenario and fase:
+            return redirect(
+                url_for(
+                    "atividades_por_cenario",
+                    projeto_id=fase.projeto_id,
+                    fase_id=fase.id,
+                    cenario_id=cenario.id,
+                )
+            )
+        return redirect(url_for("projetos"))
+
     try:
         numero = int(request.form.get("numero_sequencial") or atv.numero_sequencial)
     except ValueError:
@@ -927,6 +1107,22 @@ def delete_atividade(atividade_id):
     cenario_id = atv.cenario_id
     cenario = Cenario.query.get(cenario_id) if cenario_id else None
     fase = get_fase_for_cenario_or_none(cenario) if cenario else None
+
+    if not fase or not is_project_member(fase.projeto_id):
+        abort(403)
+
+    if not has_permission(fase.projeto_id, "pode_excluir_atividade"):
+        flash("Você não tem permissão para excluir atividades", "error")
+        if cenario_id and fase:
+            return redirect(
+                url_for(
+                    "atividades_por_cenario",
+                    projeto_id=fase.projeto_id,
+                    fase_id=fase.id,
+                    cenario_id=cenario_id,
+                )
+            )
+        return redirect(url_for("projetos"))
     db.session.delete(atv)
     db.session.commit()
     flash("Atividade excluída")
@@ -1003,15 +1199,19 @@ def concluir_atividade(atividade_id):
             )
         return redirect(url_for("projetos"))
 
-    # Segurança: apenas o responsável pode concluir
-    if atv.responsavel != current_user.username:
-        flash("Apenas o responsável pode concluir esta atividade", "error")
-        return redirect_cenario()
+    # Verificar se tem permissão para concluir qualquer atividade
+    pode_concluir_qualquer = has_permission(fase.projeto_id, 'pode_concluir_qualquer_atividade')
+    
+    if not pode_concluir_qualquer:
+        # Segurança: apenas o responsável pode concluir
+        if atv.responsavel != current_user.username:
+            flash("Apenas o responsável pode concluir esta atividade", "error")
+            return redirect_cenario()
 
-    # Deve estar liberada
-    if not atv.data_liberacao:
-        flash("Atividade ainda não está liberada")
-        return redirect_cenario()
+        # Deve estar liberada
+        if not atv.data_liberacao:
+            flash("Atividade ainda não está liberada")
+            return redirect_cenario()
 
     atv.data_conclusao = datetime.now()
     db.session.commit()
@@ -1034,6 +1234,139 @@ def concluir_atividade(atividade_id):
         return redirect_cenario()
 
     return redirect(url_for("projetos"))
+
+
+@app.route("/reabrir/<int:atividade_id>", methods=["POST"])
+@login_required
+def reabrir_atividade(atividade_id):
+    atv = Atividade.query.get_or_404(atividade_id)
+    cenario = Cenario.query.get(atv.cenario_id) if atv.cenario_id else None
+    fase = get_fase_for_cenario_or_none(cenario) if cenario else None
+
+    def redirect_cenario():
+        if cenario and fase:
+            return redirect(
+                url_for(
+                    "atividades_por_cenario",
+                    projeto_id=fase.projeto_id,
+                    fase_id=fase.id,
+                    cenario_id=cenario.id,
+                )
+            )
+        return redirect(url_for("projetos"))
+
+    # Verificar se tem permissão de administrador
+    if not has_permission(fase.projeto_id, 'pode_concluir_qualquer_atividade'):
+        flash("Apenas administradores podem reabrir atividades", "error")
+        return redirect_cenario()
+    
+    if atv.data_conclusao:
+        atv.data_conclusao = None
+        db.session.commit()
+        flash("Atividade reaberta com sucesso", "success")
+    
+    return redirect_cenario()
+
+
+# ------------------------------------------------------------------------------
+# GERENCIAR ACESSOS
+# ------------------------------------------------------------------------------
+@app.route("/projetos/<int:projeto_id>/acessos", methods=["GET", "POST"])
+@login_required
+def gerenciar_acessos(projeto_id):
+    projeto = Projeto.query.get_or_404(projeto_id)
+    if not is_project_member(projeto_id):
+        abort(403)
+
+    if not has_permission(projeto_id, "pode_gerenciar_membros"):
+        abort(403)
+    
+    # Criar novo perfil
+    if request.method == "POST" and request.form.get("action") == "criar_perfil":
+        nome_perfil = request.form.get("nome_perfil")
+        if nome_perfil:
+            novo_perfil = Perfil(
+                nome=nome_perfil,
+                projeto_id=projeto_id,
+                pode_criar_atividade=request.form.get("pode_criar_atividade") == "on",
+                pode_editar_atividade=request.form.get("pode_editar_atividade") == "on",
+                pode_excluir_atividade=request.form.get("pode_excluir_atividade") == "on",
+                pode_concluir_qualquer_atividade=request.form.get("pode_concluir_qualquer_atividade") == "on",
+                pode_editar_projeto=request.form.get("pode_editar_projeto") == "on",
+                pode_gerenciar_membros=request.form.get("pode_gerenciar_membros") == "on",
+                is_default=False
+            )
+            db.session.add(novo_perfil)
+            db.session.commit()
+            flash("Perfil criado com sucesso", "success")
+        return redirect(url_for("gerenciar_acessos", projeto_id=projeto_id))
+    
+    # Atribuir perfil a membro
+    if request.method == "POST" and request.form.get("action") == "atribuir_perfil":
+        membro_id = request.form.get("membro_id")
+        perfil_id = request.form.get("perfil_id")
+        if membro_id and perfil_id:
+            # Remover perfil anterior
+            MembroPerfil.query.filter_by(projeto_membro_id=int(membro_id)).delete()
+            # Adicionar novo perfil
+            db.session.add(MembroPerfil(projeto_membro_id=int(membro_id), perfil_id=int(perfil_id)))
+            db.session.commit()
+            flash("Perfil atribuído com sucesso", "success")
+        return redirect(url_for("gerenciar_acessos", projeto_id=projeto_id))
+    
+    # Editar perfil
+    if request.method == "POST" and request.form.get("action") == "editar_perfil":
+        perfil_id = request.form.get("perfil_id")
+        perfil = Perfil.query.get(perfil_id)
+        if perfil and perfil.projeto_id == projeto_id and not perfil.is_default:
+            perfil.pode_criar_atividade = request.form.get("pode_criar_atividade") == "on"
+            perfil.pode_editar_atividade = request.form.get("pode_editar_atividade") == "on"
+            perfil.pode_excluir_atividade = request.form.get("pode_excluir_atividade") == "on"
+            perfil.pode_concluir_qualquer_atividade = request.form.get("pode_concluir_qualquer_atividade") == "on"
+            perfil.pode_editar_projeto = request.form.get("pode_editar_projeto") == "on"
+            perfil.pode_gerenciar_membros = request.form.get("pode_gerenciar_membros") == "on"
+            db.session.commit()
+            flash("Perfil atualizado com sucesso", "success")
+        return redirect(url_for("gerenciar_acessos", projeto_id=projeto_id))
+    
+    # Excluir perfil customizado
+    if request.method == "POST" and request.form.get("action") == "excluir_perfil":
+        perfil_id = request.form.get("perfil_id")
+        perfil = Perfil.query.get(perfil_id)
+        if perfil and perfil.projeto_id == projeto_id and not perfil.is_default:
+            # Transferir membros para perfil Membro padrão
+            perfil_membro_default = Perfil.query.filter_by(projeto_id=projeto_id, nome="Membro", is_default=True).first()
+            if perfil_membro_default:
+                for mp in perfil.membros:
+                    mp.perfil_id = perfil_membro_default.id
+            db.session.delete(perfil)
+            db.session.commit()
+            flash("Perfil excluído com sucesso", "success")
+        return redirect(url_for("gerenciar_acessos", projeto_id=projeto_id))
+    
+    # Obter dados
+    perfis = Perfil.query.filter_by(projeto_id=projeto_id).all()
+    membros = ProjetoMembro.query.filter_by(projeto_id=projeto_id).all()
+    
+    # Criar dicionário de perfis por membro
+    membros_com_perfil = []
+    for membro in membros:
+        perfil_atual = None
+        if membro.perfil_associacao:
+            perfil_atual = membro.perfil_associacao[0].perfil
+        membros_com_perfil.append({
+            'membro': membro,
+            'user': membro.user,
+            'perfil': perfil_atual
+        })
+    
+    return render_template(
+        "acessos.html",
+        projeto=projeto,
+        perfis=perfis,
+        membros_com_perfil=membros_com_perfil,
+        usuario_atual=current_user.username
+    )
 
 
 @app.route("/health")

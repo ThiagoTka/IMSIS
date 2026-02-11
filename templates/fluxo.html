@@ -2,10 +2,86 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Fluxo - {{ projeto.nome }}</title>
+    <title>Cenários de Teste - {{ projeto.nome }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
     <style>
+        /* Layout com Sidebar */
+        .main-layout {
+            display: flex;
+            gap: 0;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 10px;
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-menu-item {
+            margin: 0;
+        }
+
+        .sidebar-menu-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar-menu-link:hover {
+            background-color: rgba(52, 152, 219, 0.08);
+            border-left-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .sidebar-menu-link.active {
+            background-color: rgba(52, 152, 219, 0.15);
+            border-left-color: var(--primary);
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .sidebar-menu-icon {
+            margin-right: 12px;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            flex: 1;
+            overflow-x: auto;
+        }
+
         .fluxo-container {
             display: flex;
             gap: 24px;
@@ -124,6 +200,15 @@
             background-color: #28a745;
         }
 
+        .action-btn.reopen {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        .action-btn.reopen:hover {
+            background-color: #e67e22;
+        }
+
         .column-item:hover {
             background-color: #f0f4f8;
             border-color: var(--primary);
@@ -234,13 +319,79 @@
                 min-width: 100%;
             }
         }
+
+        @media (max-width: 768px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="page-container">
+    <div class="main-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Menu do Projeto</div>
+            </div>
+            <nav>
+                <ul class="sidebar-menu">
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('fluxo', projeto_id=projeto.id) }}" class="sidebar-menu-link active">
+                            <span class="sidebar-menu-icon">✓</span>
+                            <span>Cenários de Teste</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="javascript:void(0)" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">⚠</span>
+                            <span>Incidentes</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="javascript:void(0)" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">◆</span>
+                            <span>Riscos</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="javascript:void(0)" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">◉</span>
+                            <span>Lições Aprendidas</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="javascript:void(0)" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">⟳</span>
+                            <span>Solicitações de Mudança</span>
+                        </a>
+                    </li>
+                    {% if pode_gerenciar_membros %}
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('gerenciar_acessos', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">⚙</span>
+                            <span>Gerenciar Acessos</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </aside>
 
-        <div class="page-header">
-            <h1>{{ projeto.nome }}</h1>
+        <!-- Conteúdo Principal -->
+        <div class="main-content">
+            <div class="page-container">
+
+                <div class="page-header">
+                    <h1>{{ projeto.nome }}</h1>
 
             <div class="user-bar">
                 <div>
@@ -353,11 +504,21 @@
                                             {% endif %}
                                         </div>
                                         <div class="atividade-actions">
-                                            {% if not atv.data_conclusao and atv.data_liberacao %}
-                                                <button class="action-btn complete" onclick="concluirAtividade({{ atv.id }}, event)" title="Concluir">✓</button>
+                                            {% if atv.data_conclusao %}
+                                                {% if pode_concluir_qualquer %}
+                                                    <button class="action-btn reopen" onclick="reabrirAtividade({{ atv.id }}, event)" title="Reabrir">↺</button>
+                                                {% endif %}
+                                            {% else %}
+                                                {% if pode_concluir_qualquer or (atv.data_liberacao and atv.responsavel == usuario_atual) %}
+                                                    <button class="action-btn complete" onclick="concluirAtividade({{ atv.id }}, event)" title="Concluir">✓</button>
+                                                {% endif %}
                                             {% endif %}
+                                            {% if pode_editar_atividade %}
                                             <button class="action-btn edit" onclick="editarAtividade({{ atv.id }}, {{ atv.numero_sequencial }}, '{{ atv.descricao }}', '{{ atv.responsavel }}', event)" title="Editar">✏️</button>
+                                            {% endif %}
+                                            {% if pode_excluir_atividade %}
                                             <button class="action-btn delete" onclick="excluirAtividade({{ atv.id }}, event)" title="Excluir">🗑️</button>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 {% endfor %}
@@ -377,8 +538,25 @@
         </div>
 
     </div>
+    <!-- Fim page-container -->
+
+    </div>
+    <!-- Fim main-content -->
+
+    </div>
+    <!-- Fim main-layout -->
 
     <script>
+        // Prevenir reload ao clicar no link da página atual
+        document.addEventListener('DOMContentLoaded', function() {
+            const activeLinks = document.querySelectorAll('.sidebar-menu-link.active');
+            activeLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                });
+            });
+        });
+
         function selecionarFase(faseId, event) {
             if (event.target.tagName !== 'INPUT' && event.target.tagName !== 'BUTTON') {
                 window.location.href = "{{ url_for('fluxo', projeto_id=projeto.id) }}" + "?fase=" + faseId;
@@ -510,6 +688,24 @@
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = "{{ url_for('fluxo_concluir_atividade', projeto_id=projeto.id) }}";
+                form.innerHTML = `
+                    <input type="hidden" name="atividade_id" value="${atividadeId}">
+                    <input type="hidden" name="fase_id" value="${faseId}">
+                    <input type="hidden" name="cenario_id" value="${cenarioId}">
+                `;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        function reabrirAtividade(atividadeId, event) {
+            event.stopPropagation();
+            if (confirm('Reabrir esta atividade? Ela voltará ao estado não concluído.')) {
+                const faseId = {{ fase_selecionada.id if fase_selecionada else 'null' }};
+                const cenarioId = {{ cenario_selecionado.id if cenario_selecionado else 'null' }};
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = "{{ url_for('fluxo_reabrir_atividade', projeto_id=projeto.id) }}";
                 form.innerHTML = `
                     <input type="hidden" name="atividade_id" value="${atividadeId}">
                     <input type="hidden" name="fase_id" value="${faseId}">

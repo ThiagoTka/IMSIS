@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Gerenciar Acessos - {{ projeto.nome }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+    <style>
+        /* Layout com Sidebar */
+        .main-layout {
+            display: flex;
+            gap: 0;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 10px;
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-menu-item {
+            margin: 0;
+        }
+
+        .sidebar-menu-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar-menu-link:hover {
+            background-color: rgba(52, 152, 219, 0.08);
+            border-left-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .sidebar-menu-link.active {
+            background-color: rgba(52, 152, 219, 0.15);
+            border-left-color: var(--primary);
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .sidebar-menu-icon {
+            margin-right: 12px;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+
+        .page-container {
+            padding: 20px;
+        }
+
+        .section-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--primary);
+        }
+
+        .perfis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .perfil-card {
+            background-color: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .perfil-card h4 {
+            margin: 0 0 12px 0;
+            color: var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .perfil-badge {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .permissao-item {
+            padding: 6px 0;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            line-height: 1.4;
+        }
+
+        .permissao-item.enabled {
+            color: var(--success);
+        }
+
+        .permissao-item.disabled {
+            color: var(--text-secondary);
+        }
+
+        .membros-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .membros-table th,
+        .membros-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .membros-table th {
+            background-color: var(--bg-main);
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .membros-table tr:hover {
+            background-color: rgba(52, 152, 219, 0.05);
+        }
+
+        .select-perfil {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .btn-save {
+            padding: 6px 16px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-save:hover {
+            background-color: #2980b9;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+
+        .form-group input[type="text"] {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.95rem;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 8px 0;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .checkbox-group label {
+            cursor: pointer;
+            font-size: 0.9rem;
+            flex: 1;
+            line-height: 1.4;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--bg-card);
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--primary);
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .btn-close:hover {
+            color: var(--text-primary);
+        }
+
+        .btn-edit, .btn-delete {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-left: 8px;
+        }
+
+        .btn-edit {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-delete {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background-color: #c0392b;
+        }
+
+        @media (max-width: 768px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .main-content {
+                max-height: none;
+            }
+
+            .perfis-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Menu do Projeto</div>
+            </div>
+            <nav>
+                <ul class="sidebar-menu">
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('fluxo', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">✓</span>
+                            <span>Cenários de Teste</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="javascript:void(0)" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">⚠</span>
+                            <span>Incidentes</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="javascript:void(0)" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">◆</span>
+                            <span>Riscos</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="javascript:void(0)" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">◉</span>
+                            <span>Lições Aprendidas</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="javascript:void(0)" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">⟳</span>
+                            <span>Solicitações de Mudança</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('gerenciar_acessos', projeto_id=projeto.id) }}" class="sidebar-menu-link active">
+                            <span class="sidebar-menu-icon">⚙</span>
+                            <span>Gerenciar Acessos</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <div class="main-content">
+            <div class="page-container">
+                <div class="page-header">
+                    <h1>Gerenciar Acessos - {{ projeto.nome }}</h1>
+                    <div class="user-bar">
+                        <div>
+                            <strong>Logado como:</strong> {{ usuario_atual }}
+                        </div>
+                        <div>
+                            <a href="{{ url_for('projetos') }}">← Voltar para Projetos</a>
+                            <span style="margin-left:12px;"><a href="/logout">Sair</a></span>
+                        </div>
+                    </div>
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    {% endwith %}
+                </div>
+
+                <!-- Seção de Perfis -->
+                <div class="section-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2 class="section-title">Perfis de Acesso</h2>
+                        <button class="btn-save" onclick="abrirModalCriarPerfil()">+ Criar Novo Perfil</button>
+                    </div>
+
+                    <div class="perfis-grid">
+                        {% for perfil in perfis %}
+                        <div class="perfil-card">
+                            <h4>
+                                {{ perfil.nome }}
+                                {% if perfil.is_default %}
+                                <span class="perfil-badge">Padrão</span>
+                                {% else %}
+                                <span>
+                                    <button class="btn-edit" onclick="abrirModalEditarPerfil({{ perfil.id }}, '{{ perfil.nome }}', {{ perfil.pode_criar_atividade|lower }}, {{ perfil.pode_editar_atividade|lower }}, {{ perfil.pode_excluir_atividade|lower }}, {{ perfil.pode_concluir_qualquer_atividade|lower }}, {{ perfil.pode_editar_projeto|lower }}, {{ perfil.pode_gerenciar_membros|lower }})">✏️</button>
+                                    <button class="btn-delete" onclick="excluirPerfil({{ perfil.id }}, '{{ perfil.nome }}')">🗑️</button>
+                                </span>
+                                {% endif %}
+                            </h4>
+                            <div class="permissao-item {% if perfil.pode_criar_atividade %}enabled{% else %}disabled{% endif %}">
+                                {% if perfil.pode_criar_atividade %}✓{% else %}✗{% endif %} Criar atividades
+                            </div>
+                            <div class="permissao-item {% if perfil.pode_editar_atividade %}enabled{% else %}disabled{% endif %}">
+                                {% if perfil.pode_editar_atividade %}✓{% else %}✗{% endif %} Editar atividades
+                            </div>
+                            <div class="permissao-item {% if perfil.pode_excluir_atividade %}enabled{% else %}disabled{% endif %}">
+                                {% if perfil.pode_excluir_atividade %}✓{% else %}✗{% endif %} Excluir atividades
+                            </div>
+                            <div class="permissao-item {% if perfil.pode_concluir_qualquer_atividade %}enabled{% else %}disabled{% endif %}">
+                                {% if perfil.pode_concluir_qualquer_atividade %}✓{% else %}✗{% endif %} Concluir/reabrir qualquer atividade
+                            </div>
+                            <div class="permissao-item {% if perfil.pode_editar_projeto %}enabled{% else %}disabled{% endif %}">
+                                {% if perfil.pode_editar_projeto %}✓{% else %}✗{% endif %} Editar configurações do projeto
+                            </div>
+                            <div class="permissao-item {% if perfil.pode_gerenciar_membros %}enabled{% else %}disabled{% endif %}">
+                                {% if perfil.pode_gerenciar_membros %}✓{% else %}✗{% endif %} Gerenciar membros e perfis
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Seção de Membros -->
+                <div class="section-card">
+                    <h2 class="section-title">Membros do Projeto</h2>
+                    <table class="membros-table">
+                        <thead>
+                            <tr>
+                                <th>Usuário</th>
+                                <th>Email</th>
+                                <th>Perfil Atual</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in membros_com_perfil %}
+                            <tr>
+                                <td><strong>{{ item.user.username }}</strong></td>
+                                <td>{{ item.user.email }}</td>
+                                <td>
+                                    {% if item.perfil %}
+                                        {{ item.perfil.nome }}
+                                    {% else %}
+                                        <em>Sem perfil</em>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form method="POST" style="display: inline-block;">
+                                        <input type="hidden" name="action" value="atribuir_perfil">
+                                        <input type="hidden" name="membro_id" value="{{ item.membro.id }}">
+                                        <select name="perfil_id" class="select-perfil" onchange="this.form.submit()">
+                                            <option value="">Alterar perfil...</option>
+                                            {% for perfil in perfis %}
+                                            <option value="{{ perfil.id }}" {% if item.perfil and item.perfil.id == perfil.id %}selected{% endif %}>
+                                                {{ perfil.nome }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Criar Perfil -->
+    <div id="modalCriarPerfil" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Criar Novo Perfil</h3>
+                <button class="btn-close" onclick="fecharModalCriarPerfil()">×</button>
+            </div>
+            <form method="POST">
+                <input type="hidden" name="action" value="criar_perfil">
+                <div class="form-group">
+                    <label>Nome do Perfil</label>
+                    <input type="text" name="nome_perfil" required>
+                </div>
+                <h4 style="margin-top: 20px; margin-bottom: 5px;">Permissões</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px;">Selecione as permissões que este perfil terá. Usuários com este perfil poderão executar apenas as ações marcadas.</p>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="criar_atividade" name="pode_criar_atividade">
+                    <label for="criar_atividade">Criar atividades</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="editar_atividade" name="pode_editar_atividade">
+                    <label for="editar_atividade">Editar atividades</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="excluir_atividade" name="pode_excluir_atividade">
+                    <label for="excluir_atividade">Excluir atividades</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="concluir_qualquer" name="pode_concluir_qualquer_atividade">
+                    <label for="concluir_qualquer">Concluir e reabrir qualquer atividade (ignora sequência e responsável)</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="editar_projeto" name="pode_editar_projeto">
+                    <label for="editar_projeto">Editar configurações do projeto</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="gerenciar_membros" name="pode_gerenciar_membros">
+                    <label for="gerenciar_membros">Gerenciar membros e perfis</label>
+                </div>
+                <button type="submit" class="btn-save" style="margin-top: 20px; width: 100%;">Criar Perfil</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Editar Perfil -->
+    <div id="modalEditarPerfil" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Perfil</h3>
+                <button class="btn-close" onclick="fecharModalEditarPerfil()">×</button>
+            </div>
+            <form method="POST">
+                <input type="hidden" name="action" value="editar_perfil">
+                <input type="hidden" name="perfil_id" id="edit_perfil_id">
+                <div class="form-group">
+                    <label>Nome do Perfil</label>
+                    <input type="text" id="edit_nome_perfil" readonly style="background-color: #f5f5f5;">
+                </div>
+                <h4 style="margin-top: 20px; margin-bottom: 5px;">Permissões</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px;">Ajuste as permissões do perfil. Perfis padrão não podem ser editados.</p>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="edit_criar_atividade" name="pode_criar_atividade">
+                    <label for="edit_criar_atividade">Criar atividades</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="edit_editar_atividade" name="pode_editar_atividade">
+                    <label for="edit_editar_atividade">Editar atividades</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="edit_excluir_atividade" name="pode_excluir_atividade">
+                    <label for="edit_excluir_atividade">Excluir atividades</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="edit_concluir_qualquer" name="pode_concluir_qualquer_atividade">
+                    <label for="edit_concluir_qualquer">Concluir e reabrir qualquer atividade (ignora sequência e responsável)</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="edit_editar_projeto" name="pode_editar_projeto">
+                    <label for="edit_editar_projeto">Editar configurações do projeto</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="edit_gerenciar_membros" name="pode_gerenciar_membros">
+                    <label for="edit_gerenciar_membros">Gerenciar membros e perfis</label>
+                </div>
+                <button type="submit" class="btn-save" style="margin-top: 20px; width: 100%;">Salvar Alterações</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function abrirModalCriarPerfil() {
+            document.getElementById('modalCriarPerfil').classList.add('active');
+        }
+
+        function fecharModalCriarPerfil() {
+            document.getElementById('modalCriarPerfil').classList.remove('active');
+        }
+
+        function abrirModalEditarPerfil(id, nome, criar, editar, excluir, concluir, editarProj, gerenciar) {
+            document.getElementById('edit_perfil_id').value = id;
+            document.getElementById('edit_nome_perfil').value = nome;
+            document.getElementById('edit_criar_atividade').checked = criar;
+            document.getElementById('edit_editar_atividade').checked = editar;
+            document.getElementById('edit_excluir_atividade').checked = excluir;
+            document.getElementById('edit_concluir_qualquer').checked = concluir;
+            document.getElementById('edit_editar_projeto').checked = editarProj;
+            document.getElementById('edit_gerenciar_membros').checked = gerenciar;
+            document.getElementById('modalEditarPerfil').classList.add('active');
+        }
+
+        function fecharModalEditarPerfil() {
+            document.getElementById('modalEditarPerfil').classList.remove('active');
+        }
+
+        function excluirPerfil(id, nome) {
+            if (confirm('Tem certeza que deseja excluir o perfil "' + nome + '"? Os membros com este perfil serão transferidos para o perfil Membro.')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.innerHTML = `
+                    <input type="hidden" name="action" value="excluir_perfil">
+                    <input type="hidden" name="perfil_id" value="${id}">
+                `;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        // Fechar modais ao clicar fora
+        document.getElementById('modalCriarPerfil').addEventListener('click', function(e) {
+            if (e.target === this) {
+                fecharModalCriarPerfil();
+            }
+        });
+
+        document.getElementById('modalEditarPerfil').addEventListener('click', function(e) {
+            if (e.target === this) {
+                fecharModalEditarPerfil();
+            }
+        });
+
+        // Prevenir reload ao clicar no link da página atual
+        document.addEventListener('DOMContentLoaded', function() {
+            const activeLinks = document.querySelectorAll('.sidebar-menu-link.active');
+            activeLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                });
+            });
+        });
+    </script>
+</body>
+</html>
