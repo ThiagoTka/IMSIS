@@ -45,11 +45,7 @@ body {
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
   margin: 0;
   padding: 0;
-  height: 100vh;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-height: 100vh;
 
   background-color: var(--bg-main);
   color: var(--text-main);
@@ -292,6 +288,18 @@ td form:last-child button:hover {
 ======================= */
 body {
   padding: 24px;
+}
+
+@media (max-width: 1024px) {
+  body {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 12px;
+  }
 }
 
 
