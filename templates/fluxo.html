@@ -309,6 +309,66 @@
             color: var(--text-secondary);
         }
 
+        .tab-controls {
+            display: inline-flex;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .tab-btn {
+            padding: 8px 14px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .cenarios-list-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+
+        .cenarios-list-table th,
+        .cenarios-list-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .cenarios-list-table th {
+            background-color: var(--bg-main);
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            position: sticky;
+            top: 0;
+        }
+
+        .cenarios-list-table tr:hover {
+            background-color: rgba(52, 152, 219, 0.05);
+        }
+
         /* Responsivo */
         @media (max-width: 1200px) {
             .fluxo-container {
@@ -331,6 +391,15 @@
                 position: relative;
                 border-right: none;
                 border-bottom: 1px solid var(--border);
+            }
+
+            .tab-controls {
+                width: 100%;
+            }
+
+            .tab-btn {
+                flex: 1;
+                text-align: center;
             }
         }
     </style>
@@ -412,6 +481,12 @@
             {% endwith %}
         </div>
 
+        <div class="tab-controls" role="tablist" aria-label="Visualizacao de cenarios">
+            <button type="button" class="tab-btn active" data-tab="cards" aria-selected="true">Cartoes</button>
+            <button type="button" class="tab-btn" data-tab="lista" aria-selected="false">Lista</button>
+        </div>
+
+        <div id="tab-cards" class="tab-content active">
         <div class="fluxo-container">
             <!-- COLUNA FASES -->
             <div class="fluxo-column">
@@ -536,6 +611,75 @@
                 </div>
             </div>
         </div>
+        </div>
+
+        <div id="tab-lista" class="tab-content">
+            {% if fases %}
+            <div style="overflow-x: auto;">
+                <table class="cenarios-list-table">
+                    <thead>
+                        <tr>
+                            <th>Fase</th>
+                            <th>Cenario</th>
+                            <th>Seq</th>
+                            <th>Atividade</th>
+                            <th>Responsavel</th>
+                            <th>Status</th>
+                            <th style="width: 140px;">Acoes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set has_items = false %}
+                        {% for f in fases %}
+                            {% for c in f.cenarios %}
+                                {% for atv in c.atividades %}
+                                    {% set has_items = true %}
+                                    <tr>
+                                        <td>{{ f.nome }}</td>
+                                        <td>{{ c.cenario }}</td>
+                                        <td>#{{ atv.numero_sequencial }}</td>
+                                        <td>{{ atv.descricao }}</td>
+                                        <td>{{ atv.responsavel }}</td>
+                                        <td>
+                                            {% if atv.data_conclusao %}
+                                                Concluida em {{ atv.data_conclusao.strftime('%d/%m %H:%M') }}
+                                            {% elif atv.data_liberacao %}
+                                                Liberada em {{ atv.data_liberacao.strftime('%d/%m %H:%M') }}
+                                            {% else %}
+                                                Aguardando anterior
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if atv.data_conclusao %}
+                                                {% if pode_concluir_qualquer %}
+                                                    <button class="action-btn reopen" onclick="reabrirAtividade({{ atv.id }}, event)" title="Reabrir">↺</button>
+                                                {% endif %}
+                                            {% else %}
+                                                {% if pode_concluir_qualquer or (atv.data_liberacao and atv.responsavel == usuario_atual) %}
+                                                    <button class="action-btn complete" onclick="concluirAtividade({{ atv.id }}, event)" title="Concluir">✓</button>
+                                                {% endif %}
+                                            {% endif %}
+                                            {% if pode_editar_atividade %}
+                                                <button class="action-btn edit" onclick="editarAtividade({{ atv.id }}, {{ atv.numero_sequencial }}, '{{ atv.descricao }}', '{{ atv.responsavel }}', event)" title="Editar">✏️</button>
+                                            {% endif %}
+                                            {% if pode_excluir_atividade %}
+                                                <button class="action-btn delete" onclick="excluirAtividade({{ atv.id }}, event)" title="Excluir">🗑️</button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if not has_items %}
+                <div class="empty-state">Nenhuma atividade cadastrada</div>
+            {% endif %}
+            {% else %}
+                <div class="empty-state">Nenhuma fase criada</div>
+            {% endif %}
+        </div>
 
     </div>
     <!-- Fim page-container -->
@@ -553,6 +697,33 @@
             activeLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
+                });
+            });
+
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+            const params = new URLSearchParams(window.location.search);
+            const initialTab = params.get('tab') || 'cards';
+
+            function setActiveTab(tabId) {
+                tabButtons.forEach(btn => {
+                    const isActive = btn.dataset.tab === tabId;
+                    btn.classList.toggle('active', isActive);
+                    btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                });
+                tabContents.forEach(content => {
+                    content.classList.toggle('active', content.id === `tab-${tabId}`);
+                });
+                params.set('tab', tabId);
+                const newUrl = `${window.location.pathname}?${params.toString()}`;
+                window.history.replaceState({}, '', newUrl);
+            }
+
+            setActiveTab(initialTab);
+
+            tabButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    setActiveTab(this.dataset.tab);
                 });
             });
         });
