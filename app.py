@@ -295,9 +295,49 @@ def criar_tabelas():
     try:
         db.create_all()
         print("✅ Banco de dados inicializado com sucesso")
+        
+        # Verificar e adicionar colunas faltando na tabela perfis (para backward compatibility)
+        adicionar_colunas_faltando()
+        
     except Exception as e:
         print(f"⚠️  Aviso ao inicializar DB: {e}")
         # Não quebra a aplicação se falhar
+
+
+def adicionar_colunas_faltando():
+    """
+    Verifica se as colunas de permissões existem na tabela perfis.
+    Se não existirem, as cria (para compatibilidade com bancos antigos).
+    """
+    try:
+        inspector = inspect(db.engine)
+        colunas_existentes = [c["name"] for c in inspector.get_columns("perfis")]
+        
+        # Colunas que deveriam existir
+        colunas_necessarias = {
+            "pode_criar_licao": "ALTER TABLE perfis ADD COLUMN pode_criar_licao BOOLEAN DEFAULT false",
+            "pode_editar_licao": "ALTER TABLE perfis ADD COLUMN pode_editar_licao BOOLEAN DEFAULT false",
+            "pode_excluir_licao": "ALTER TABLE perfis ADD COLUMN pode_excluir_licao BOOLEAN DEFAULT false",
+            "pode_criar_mudanca": "ALTER TABLE perfis ADD COLUMN pode_criar_mudanca BOOLEAN DEFAULT false",
+            "pode_editar_mudanca": "ALTER TABLE perfis ADD COLUMN pode_editar_mudanca BOOLEAN DEFAULT false",
+            "pode_excluir_mudanca": "ALTER TABLE perfis ADD COLUMN pode_excluir_mudanca BOOLEAN DEFAULT false",
+        }
+        
+        # Adicionar colunas que faltam
+        for coluna, sql in colunas_necessarias.items():
+            if coluna not in colunas_existentes:
+                try:
+                    db.session.execute(text(sql))
+                    db.session.commit()
+                    print(f"✓ Coluna {coluna} adicionada com sucesso")
+                except Exception as e:
+                    db.session.rollback()
+                    # Coluna pode já existir ou houve outro erro, continua
+                    if "duplicate column" not in str(e).lower():
+                        print(f"⚠️  Erro ao adicionar {coluna}: {e}")
+    except Exception as e:
+        print(f"⚠️  Erro ao verificar colunas: {e}")
+        # Não quebra a aplicação
 
 
 # 🔥 Inicializa o banco de dados automaticamente quando a app inicia
