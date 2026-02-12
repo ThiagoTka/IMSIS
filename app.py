@@ -446,6 +446,16 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/health")
+def health():
+    """Health check endpoint - sem autenticação"""
+    try:
+        db.session.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "connected"}, 200
+    except Exception as e:
+        return {"status": "error", "db": str(e)}, 500
+
+
 @app.route("/")
 @login_required
 def index():
