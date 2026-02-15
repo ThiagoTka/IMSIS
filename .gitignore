@@ -1,8 +1,58 @@
+# Ambientes virtuais Python
 .venv/
 venv/
+ENV/
+env/
+
+# Arquivos compilados Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Bancos de dados locais
 *.db
+*.sqlite
+*.sqlite3
+instance/
+database.db
+dev.db
+
+# Arquivos de ambiente e secrets
 .env
 .env.local
+.env.*.local
+
+# Arquivos temporários
+*.tmp
+*.log
+*.bak
+logs.txt
+latest_logs.txt
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Arquivos de desenho
 .drawio
+*.drawio.bkp
+*.drawio.dtmp
+
+# Cloud SQL Proxy
+cloud_sql_proxy
+cloud_sql_proxy.exe
+
+# Arquivos de migração antigos (deprecated)
+migrate_*.py
+create_db.py
+init_db.py
+atualizar_permissoes_licoes.py
+reset_user_password.py

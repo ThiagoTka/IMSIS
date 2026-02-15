@@ -1,6 +1,31 @@
 # IMSIS - Sistema de Gestão de Projetos
 
-Sistema web para gerenciamento de projetos, com suporte a cenários de teste, lições aprendidas e solicitações de mudança.
+Sistema web para gerenciamento de projetos, com suporte a cenários de teste, lições aprendidas, solicitações de mudança, gestão de incidentes e riscos.
+
+## 📚 Documentação
+
+- 🚀 **[DEPLOY_CHECKLIST.md](DEPLOY_CHECKLIST.md)** - Checklist rápido para deploy
+- 📊 **[GCP_READINESS_REPORT.md](GCP_READINESS_REPORT.md)** - Relatório completo de prontidão
+- ⚙️ **[GCP_SETUP.md](GCP_SETUP.md)** - Guia detalhado de configuração do GCP
+- 🔐 **[SECURITY.md](SECURITY.md)** - Diretrizes de segurança
+
+## 🚀 Deploy Rápido no GCP
+
+### Pré-requisitos
+1. Configurar secrets (ver [DEPLOY_CHECKLIST.md](DEPLOY_CHECKLIST.md))
+2. Criar Cloud SQL instance
+3. Configurar permissões IAM
+
+### Deploy
+```bash
+# 1. Configurar secrets
+bash setup_gcp_secrets.sh
+
+# 2. Push para GitHub (ou deploy manual)
+git push origin main
+```
+
+Veja o guia completo em [DEPLOY_CHECKLIST.md](DEPLOY_CHECKLIST.md)
 
 ## Deployment no GCP
 

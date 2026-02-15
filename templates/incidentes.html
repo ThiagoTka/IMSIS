@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Incidentes - {{ projeto.nome }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+    <style>
+        .main-layout {
+            display: flex;
+            gap: 0;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 10px;
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-menu-item {
+            margin: 0;
+        }
+
+        .sidebar-menu-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar-menu-link:hover {
+            background-color: rgba(52, 152, 219, 0.08);
+            border-left-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .sidebar-menu-link.active {
+            background-color: rgba(52, 152, 219, 0.15);
+            border-left-color: var(--primary);
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .sidebar-menu-icon {
+            margin-right: 12px;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+
+        .page-container {
+            padding: 20px;
+        }
+
+        .section-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .incidentes-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+            font-size: 0.9rem;
+        }
+
+        .incidentes-table th,
+        .incidentes-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .incidentes-table th {
+            background-color: var(--bg-main);
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            position: sticky;
+            top: 0;
+        }
+
+        .incidentes-table tr:hover {
+            background-color: rgba(52, 152, 219, 0.05);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-criado {
+            background-color: rgba(168, 85, 247, 0.1);
+            color: #9333ea;
+        }
+
+        .status-andamento {
+            background-color: rgba(52, 152, 219, 0.1);
+            color: #2563eb;
+        }
+
+        .status-aguardando-solicitante {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: #d97706;
+        }
+
+        .status-aguardando-externo {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: #d97706;
+        }
+
+        .status-encaminhado {
+            background-color: rgba(100, 116, 139, 0.1);
+            color: #64748b;
+        }
+
+        .status-proposta {
+            background-color: rgba(34, 197, 94, 0.1);
+            color: #16a34a;
+        }
+
+        .status-concluido {
+            background-color: rgba(34, 197, 94, 0.1);
+            color: #16a34a;
+        }
+
+        .prioridade-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .prioridade-1 {
+            background-color: rgba(127, 29, 29, 0.2);
+            color: #991b1b;
+            font-weight: 600;
+        }
+
+        .prioridade-2 {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+        }
+
+        .prioridade-3 {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: #d97706;
+        }
+
+        .prioridade-4 {
+            background-color: rgba(100, 116, 139, 0.1);
+            color: #64748b;
+        }
+
+        .prioridade-5 {
+            background-color: rgba(100, 116, 139, 0.05);
+            color: #94a3b8;
+        }
+
+        .btn-add {
+            padding: 8px 16px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background-color 0.2s ease;
+        }
+
+        .btn-add:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-action {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-right: 4px;
+            transition: opacity 0.2s ease;
+        }
+
+        .btn-action:hover {
+            opacity: 0.8;
+        }
+
+        .btn-edit {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-delete {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .link-atividade {
+            color: var(--primary);
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .link-atividade:hover {
+            text-decoration: underline;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--bg-card);
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 900px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--primary);
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .btn-close:hover {
+            color: var(--text-primary);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.95rem;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-section-title {
+            grid-column: 1 / -1;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-top: 12px;
+            margin-bottom: 4px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+
+        .btn-submit {
+            padding: 10px 20px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .btn-submit:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-cancel {
+            padding: 10px 20px;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .btn-cancel:hover {
+            background-color: var(--border);
+        }
+
+        @media (max-width: 1024px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .main-content {
+                max-height: none;
+            }
+
+            .incidentes-table {
+                font-size: 0.8rem;
+            }
+
+            .incidentes-table th,
+            .incidentes-table td {
+                padding: 8px 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Menu do Projeto</div>
+            </div>
+            <nav>
+                <ul class="sidebar-menu">
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('fluxo', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">✓</span>
+                            <span>Cenários de Teste</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('incidentes', projeto_id=projeto.id) }}" class="sidebar-menu-link active">
+                            <span class="sidebar-menu-icon">⚠</span>
+                            <span>Incidentes</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('riscos', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">◆</span>
+                            <span>Riscos</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('licoes_aprendidas', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">◉</span>
+                            <span>Lições Aprendidas</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('solicitacoes_mudanca', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">⟳</span>
+                            <span>Solicitações de Mudança</span>
+                        </a>
+                    </li>
+                    {% if pode_gerenciar_membros %}
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('gerenciar_acessos', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">⚙</span>
+                            <span>Gerenciar Acessos</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <div class="main-content">
+            <div class="page-container">
+                <div class="page-header">
+                    <h1>Incidentes - {{ projeto.nome }}</h1>
+                    <div class="user-bar">
+                        <div>
+                            <strong>Logado como:</strong> {{ usuario_atual }}
+                        </div>
+                        <div>
+                            <a href="{{ url_for('projetos') }}">← Voltar para Projetos</a>
+                            <span style="margin-left:12px;"><a href="/logout">Sair</a></span>
+                        </div>
+                    </div>
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    {% endwith %}
+                </div>
+
+                <div class="section-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h2 class="section-title">Registro de Incidentes</h2>
+                        {% if pode_criar %}
+                        <button class="btn-add" onclick="abrirModalCriar()">+ Novo Incidente</button>
+                        {% endif %}
+                    </div>
+
+                    {% if incidentes %}
+                    <div style="overflow-x: auto;">
+                        <table class="incidentes-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">ID</th>
+                                    <th>ID Atividade</th>
+                                    <th>Descrição</th>
+                                    <th>Responsável</th>
+                                    <th>Prioridade</th>
+                                    <th>Status</th>
+                                    <th>Previsão</th>
+                                    <th style="width: 120px;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for incidente in incidentes %}
+                                <tr>
+                                    <td>#{{ incidente.id }}</td>
+                                    <td>
+                                        {% if incidente.atividade %}
+                                            <a href="javascript:void(0)" class="link-atividade" title="Atividade: {{ incidente.atividade.descricao }}">
+                                                #{{ incidente.atividade_id }}
+                                            </a>
+                                        {% else %}
+                                            <span style="color: var(--text-secondary);">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ incidente.descricao[:40] ~ '...' if incidente.descricao|length > 40 else incidente.descricao }}</td>
+                                    <td>{{ incidente.responsavel or '-' }}</td>
+                                    <td>
+                                        {% if incidente.prioridade == '1 - Muito Alto' %}
+                                            <span class="prioridade-badge prioridade-1">Muito Alto</span>
+                                        {% elif incidente.prioridade == '2 - Alto' %}
+                                            <span class="prioridade-badge prioridade-2">Alto</span>
+                                        {% elif incidente.prioridade == '3 - Médio' %}
+                                            <span class="prioridade-badge prioridade-3">Médio</span>
+                                        {% elif incidente.prioridade == '4 - Baixo' %}
+                                            <span class="prioridade-badge prioridade-4">Baixo</span>
+                                        {% elif incidente.prioridade == '5 - Muito Baixo' %}
+                                            <span class="prioridade-badge prioridade-5">Muito Baixo</span>
+                                        {% else %}
+                                            <span class="prioridade-badge">{{ incidente.prioridade or '-' }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if incidente.status == 'Criado' %}
+                                            <span class="status-badge status-criado">Criado</span>
+                                        {% elif incidente.status == 'Em andamento' %}
+                                            <span class="status-badge status-andamento">Em andamento</span>
+                                        {% elif incidente.status == 'Aguardando Solicitante' %}
+                                            <span class="status-badge status-aguardando-solicitante">Aguardando Solicitante</span>
+                                        {% elif incidente.status == 'Aguardando Externo' %}
+                                            <span class="status-badge status-aguardando-externo">Aguardando Externo</span>
+                                        {% elif incidente.status == 'Encaminhado Responsavel' %}
+                                            <span class="status-badge status-encaminhado">Encaminhado</span>
+                                        {% elif incidente.status == 'Proposta de solução' %}
+                                            <span class="status-badge status-proposta">Proposta</span>
+                                        {% elif incidente.status == 'Concluído' %}
+                                            <span class="status-badge status-concluido">Concluído</span>
+                                        {% else %}
+                                            <span class="status-badge">{{ incidente.status or '-' }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if incidente.previsao_revisada %}
+                                            {{ incidente.previsao_revisada.strftime('%d/%m/%Y') }}
+                                        {% elif incidente.previsao_original %}
+                                            {{ incidente.previsao_original.strftime('%d/%m/%Y') }}
+                                        {% else %}
+                                            <span style="color: var(--text-secondary);">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if pode_editar %}
+                                        <button class="btn-action btn-edit" 
+                                            onclick="abrirModalEditarFromButton(this)"
+                                            data-id="{{ incidente.id }}"
+                                            data-atividade-id="{{ incidente.atividade_id or '' }}"
+                                            data-descricao="{{ incidente.descricao or '' }}"
+                                            data-acompanhamento="{{ incidente.acompanhamento or '' }}"
+                                            data-responsavel="{{ incidente.responsavel or '' }}"
+                                            data-prioridade="{{ incidente.prioridade or '' }}"
+                                            data-status="{{ incidente.status or '' }}"
+                                            data-previsao-original="{{ incidente.previsao_original.strftime('%Y-%m-%d') if incidente.previsao_original else '' }}"
+                                            data-previsao-revisada="{{ incidente.previsao_revisada.strftime('%Y-%m-%d') if incidente.previsao_revisada else '' }}"
+                                            data-conclusao="{{ incidente.conclusao.strftime('%Y-%m-%d') if incidente.conclusao else '' }}">Editar</button>
+                                        {% endif %}
+                                        {% if pode_excluir %}
+                                        <button class="btn-action btn-delete" onclick="excluirIncidente({{ incidente.id }})">Excluir</button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p style="text-align: center; color: var(--text-secondary); margin: 20px 0;">Nenhum incidente registrado ainda.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Criar Incidente -->
+    <div id="modalCriar" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Novo Incidente</h3>
+                <button class="btn-close" onclick="fecharModalCriar()">×</button>
+            </div>
+            <form method="POST">
+                <input type="hidden" name="action" value="criar">
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>ID Atividade</label>
+                        <select name="atividade_id">
+                            <option value="">Selecione uma atividade...</option>
+                            {% for atividade in atividades %}
+                            <option value="{{ atividade.id }}">{{ atividade.id }} - {{ atividade.descricao }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Responsável</label>
+                        <input type="text" name="responsavel" placeholder="Responsável pelo incidente">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Prioridade *</label>
+                        <select name="prioridade" required>
+                            <option value="">Selecione a prioridade...</option>
+                            <option value="1 - Muito Alto">1 - Muito Alto</option>
+                            <option value="2 - Alto">2 - Alto</option>
+                            <option value="3 - Médio">3 - Médio</option>
+                            <option value="4 - Baixo">4 - Baixo</option>
+                            <option value="5 - Muito Baixo">5 - Muito Baixo</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Status *</label>
+                        <select name="status" required>
+                            <option value="Criado">Criado</option>
+                            <option value="Em andamento">Em andamento</option>
+                            <option value="Aguardando Solicitante">Aguardando Solicitante</option>
+                            <option value="Aguardando Externo">Aguardando Externo</option>
+                            <option value="Encaminhado Responsavel">Encaminhado Responsavel</option>
+                            <option value="Proposta de solução">Proposta de solução</option>
+                            <option value="Concluído">Concluído</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Previsão Original</label>
+                        <input type="date" name="previsao_original">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Previsão Revisada</label>
+                        <input type="date" name="previsao_revisada">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Descrição *</label>
+                        <textarea name="descricao" placeholder="Descrição do incidente" required></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Acompanhamento</label>
+                        <textarea name="acompanhamento" placeholder="Acompanhamento do incidente"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="fecharModalCriar()">Cancelar</button>
+                    <button type="submit" class="btn-submit">Criar Incidente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Editar Incidente -->
+    <div id="modalEditar" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Incidente</h3>
+                <button class="btn-close" onclick="fecharModalEditar()">×</button>
+            </div>
+            <form method="POST">
+                <input type="hidden" name="action" value="editar">
+                <input type="hidden" name="incidente_id" id="editarId" value="">
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>ID Atividade</label>
+                        <select name="atividade_id" id="editarAtividadeId">
+                            <option value="">Selecione uma atividade...</option>
+                            {% for atividade in atividades %}
+                            <option value="{{ atividade.id }}">{{ atividade.id }} - {{ atividade.descricao }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Responsável</label>
+                        <input type="text" name="responsavel" id="editarResponsavel" placeholder="Responsável pelo incidente">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Prioridade *</label>
+                        <select name="prioridade" id="editarPrioridade" required>
+                            <option value="">Selecione a prioridade...</option>
+                            <option value="1 - Muito Alto">1 - Muito Alto</option>
+                            <option value="2 - Alto">2 - Alto</option>
+                            <option value="3 - Médio">3 - Médio</option>
+                            <option value="4 - Baixo">4 - Baixo</option>
+                            <option value="5 - Muito Baixo">5 - Muito Baixo</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Status *</label>
+                        <select name="status" id="editarStatus" required>
+                            <option value="Criado">Criado</option>
+                            <option value="Em andamento">Em andamento</option>
+                            <option value="Aguardando Solicitante">Aguardando Solicitante</option>
+                            <option value="Aguardando Externo">Aguardando Externo</option>
+                            <option value="Encaminhado Responsavel">Encaminhado Responsavel</option>
+                            <option value="Proposta de solução">Proposta de solução</option>
+                            <option value="Concluído">Concluído</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Previsão Original</label>
+                        <input type="date" name="previsao_original" id="editarPrevisaoOriginal">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Previsão Revisada</label>
+                        <input type="date" name="previsao_revisada" id="editarPrevisaoRevisada">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Conclusão</label>
+                        <input type="date" name="conclusao" id="editarConclusao">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Descrição *</label>
+                        <textarea name="descricao" id="editarDescricao" placeholder="Descrição do incidente" required></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Acompanhamento</label>
+                        <textarea name="acompanhamento" id="editarAcompanhamento" placeholder="Acompanhamento do incidente"></textarea>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="fecharModalEditar()">Cancelar</button>
+                    <button type="submit" class="btn-submit">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Excluir -->
+    <div id="modalExcluir" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirmar Exclusão</h3>
+                <button class="btn-close" onclick="fecharModalExcluir()">×</button>
+            </div>
+            <p style="margin: 20px 0; color: var(--text-secondary);">Tem certeza de que deseja excluir este incidente? Esta ação não pode ser desfeita.</p>
+            <form method="POST" id="formExcluir">
+                <input type="hidden" name="action" value="excluir">
+                <input type="hidden" name="incidente_id" id="excluirId" value="">
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="fecharModalExcluir()">Cancelar</button>
+                    <button type="submit" class="btn-delete" style="padding: 10px 20px;">Sim, Excluir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function abrirModalCriar() {
+            document.getElementById('modalCriar').classList.add('active');
+        }
+
+        function fecharModalCriar() {
+            document.getElementById('modalCriar').classList.remove('active');
+        }
+
+        function abrirModalEditar() {
+            document.getElementById('modalEditar').classList.add('active');
+        }
+
+        function fecharModalEditar() {
+            document.getElementById('modalEditar').classList.remove('active');
+        }
+
+        function abrirModalEditarFromButton(button) {
+            const id = button.getAttribute('data-id');
+            const atividadeId = button.getAttribute('data-atividade-id');
+            const descricao = button.getAttribute('data-descricao');
+            const acompanhamento = button.getAttribute('data-acompanhamento');
+            const responsavel = button.getAttribute('data-responsavel');
+            const prioridade = button.getAttribute('data-prioridade');
+            const status = button.getAttribute('data-status');
+            const previsaoOriginal = button.getAttribute('data-previsao-original');
+            const previsaoRevisada = button.getAttribute('data-previsao-revisada');
+            const conclusao = button.getAttribute('data-conclusao');
+
+            document.getElementById('editarId').value = id;
+            document.getElementById('editarAtividadeId').value = atividadeId;
+            document.getElementById('editarDescricao').value = descricao;
+            document.getElementById('editarAcompanhamento').value = acompanhamento;
+            document.getElementById('editarResponsavel').value = responsavel;
+            document.getElementById('editarPrioridade').value = prioridade;
+            document.getElementById('editarStatus').value = status;
+            document.getElementById('editarPrevisaoOriginal').value = previsaoOriginal;
+            document.getElementById('editarPrevisaoRevisada').value = previsaoRevisada;
+            document.getElementById('editarConclusao').value = conclusao;
+
+            abrirModalEditar();
+        }
+
+        function excluirIncidente(id) {
+            document.getElementById('excluirId').value = id;
+            document.getElementById('modalExcluir').classList.add('active');
+        }
+
+        function fecharModalExcluir() {
+            document.getElementById('modalExcluir').classList.remove('active');
+        }
+
+        // Fechar modal ao clicar fora dele
+        window.addEventListener('click', function(event) {
+            const modais = document.querySelectorAll('.modal.active');
+            modais.forEach(modal => {
+                if (event.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -14,19 +14,23 @@ O `cloudbuild.yaml` foi atualizado para passar as variáveis de ambiente correta
 
 ### No Google Cloud Console, execute estes comandos:
 
+⚠️ **IMPORTANTE**: Substitua `SUA_SENHA_AQUI` e `SUA_CHAVE_SECRETA` pelas suas credenciais reais!
+
 ```bash
 # Criar secret para DB_PASS
-echo -n "KHH5&efe%hrb@#" | gcloud secrets create db-pass --data-file=-
+echo -n "SUA_SENHA_AQUI" | gcloud secrets create db-pass --data-file=-
 
 # Criar secret para SECRET_KEY
-echo -n "KHH5&efe%hrb@#" | gcloud secrets create secret-key --data-file=-
+echo -n "SUA_CHAVE_SECRETA" | gcloud secrets create secret-key --data-file=-
 ```
 
 Ou via Google Cloud Console:
 1. Vá para **Security** → **Secret Manager**
 2. Clique em **Create Secret**
-3. Nome: `db-pass`, Valor: `KHH5&efe%hrb@#`
-4. Nome: `secret-key`, Valor: `KHH5&efe%hrb@#`
+3. Nome: `db-pass`, Valor: `[sua senha do banco de dados]`
+4. Nome: `secret-key`, Valor: `[sua chave secreta da aplicação]`
+
+**Dica**: Use o script `setup_gcp_secrets.sh` que carrega automaticamente do arquivo `.env`
 
 ## 📝 Passo 2: Atualizar cloudbuild.yaml com Secrets
 
@@ -86,7 +90,7 @@ O Cloud Run esta configurado com:
 ```python
 # app.py detecta automaticamente Cloud SQL:
 db_user = os.environ.get("DB_USER")           # imsis_user
-db_pass = os.environ.get("DB_PASS")           # KHH5&efe%hrb@#
+db_pass = os.environ.get("DB_PASS")           # [carregado do Secret Manager]
 db_name = os.environ.get("DB_NAME")           # imsis
 cloud_sql = os.environ.get("CLOUD_SQL_CONNECTION_NAME")  # imsis-486003:us-central1:imsis-db
 

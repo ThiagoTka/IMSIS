@@ -327,13 +327,13 @@
                         </a>
                     </li>
                     <li class="sidebar-menu-item">
-                        <a href="javascript:void(0)" class="sidebar-menu-link">
+                        <a href="{{ url_for('incidentes', projeto_id=projeto.id) }}" class="sidebar-menu-link">
                             <span class="sidebar-menu-icon">⚠</span>
                             <span>Incidentes</span>
                         </a>
                     </li>
                     <li class="sidebar-menu-item">
-                        <a href="javascript:void(0)" class="sidebar-menu-link">
+                        <a href="{{ url_for('riscos', projeto_id=projeto.id) }}" class="sidebar-menu-link">
                             <span class="sidebar-menu-icon">◆</span>
                             <span>Riscos</span>
                         </a>

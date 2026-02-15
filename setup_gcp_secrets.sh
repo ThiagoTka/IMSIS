@@ -18,9 +18,22 @@ PROJECT_ID="imsis-486003"
 echo "📋 Verificando projeto: $PROJECT_ID"
 gcloud config set project $PROJECT_ID
 
-# Variáveis (do .env)
-DB_PASS="KHH5&efe%hrb@#"
-SECRET_KEY="KHH5&efe%hrb@#"
+# ⚠️  IMPORTANTE: Carregue as variáveis do arquivo .env (que NÃO deve estar no git)
+if [ ! -f .env ]; then
+    echo "❌ Arquivo .env não encontrado!"
+    echo "   Crie um arquivo .env com:"
+    echo "   DB_PASS=sua_senha_secreta"
+    echo "   SECRET_KEY=sua_chave_secreta"
+    exit 1
+fi
+
+# Carregar variáveis do .env
+export $(grep -v '^#' .env | xargs)
+
+if [ -z "$DB_PASS" ] || [ -z "$SECRET_KEY" ]; then
+    echo "❌ DB_PASS ou SECRET_KEY não encontrados no .env"
+    exit 1
+fi
 
 # Criar secrets
 echo ""

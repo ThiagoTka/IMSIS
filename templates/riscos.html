@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Riscos - {{ projeto.nome }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+    <style>
+        .main-layout {
+            display: flex;
+            gap: 0;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 10px;
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-menu-item {
+            margin: 0;
+        }
+
+        .sidebar-menu-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar-menu-link:hover {
+            background-color: rgba(52, 152, 219, 0.08);
+            border-left-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .sidebar-menu-link.active {
+            background-color: rgba(52, 152, 219, 0.15);
+            border-left-color: var(--primary);
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .sidebar-menu-icon {
+            margin-right: 12px;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+
+        .page-container {
+            padding: 20px;
+        }
+
+        .section-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .riscos-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+            font-size: 0.9rem;
+        }
+
+        .riscos-table th,
+        .riscos-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        .riscos-table th {
+            background-color: var(--bg-main);
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            position: sticky;
+            top: 0;
+        }
+
+        .riscos-table tr:hover {
+            background-color: rgba(52, 152, 219, 0.05);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-alto {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+        }
+
+        .badge-medio {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: #d97706;
+        }
+
+        .badge-baixo {
+            background-color: rgba(100, 116, 139, 0.1);
+            color: #64748b;
+        }
+
+        .btn-add {
+            padding: 8px 16px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background-color 0.2s ease;
+        }
+
+        .btn-add:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-action {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-right: 4px;
+            transition: opacity 0.2s ease;
+        }
+
+        .btn-action:hover {
+            opacity: 0.8;
+        }
+
+        .btn-edit {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-delete {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--bg-card);
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 1100px;
+            width: 92%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--primary);
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .btn-close:hover {
+            color: var(--text-primary);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.95rem;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+
+        .btn-submit {
+            padding: 10px 20px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .btn-submit:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-cancel {
+            padding: 10px 20px;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .btn-cancel:hover {
+            background-color: var(--border);
+        }
+
+        @media (max-width: 1024px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .main-content {
+                max-height: none;
+            }
+
+            .riscos-table {
+                font-size: 0.8rem;
+            }
+
+            .riscos-table th,
+            .riscos-table td {
+                padding: 8px 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Menu do Projeto</div>
+            </div>
+            <nav>
+                <ul class="sidebar-menu">
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('fluxo', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">✓</span>
+                            <span>Cenários de Teste</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('incidentes', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">⚠</span>
+                            <span>Incidentes</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('riscos', projeto_id=projeto.id) }}" class="sidebar-menu-link active">
+                            <span class="sidebar-menu-icon">◆</span>
+                            <span>Riscos</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('licoes_aprendidas', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">◉</span>
+                            <span>Licoes Aprendidas</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('solicitacoes_mudanca', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">⟳</span>
+                            <span>Solicitacoes de Mudanca</span>
+                        </a>
+                    </li>
+                    {% if pode_gerenciar_membros %}
+                    <li class="sidebar-menu-item">
+                        <a href="{{ url_for('gerenciar_acessos', projeto_id=projeto.id) }}" class="sidebar-menu-link">
+                            <span class="sidebar-menu-icon">⚙</span>
+                            <span>Gerenciar Acessos</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Conteudo Principal -->
+        <div class="main-content">
+            <div class="page-container">
+                <div class="page-header">
+                    <h1>Riscos - {{ projeto.nome }}</h1>
+                    <div class="user-bar">
+                        <div>
+                            <strong>Logado como:</strong> {{ usuario_atual }}
+                        </div>
+                        <div>
+                            <a href="{{ url_for('projetos') }}"><- Voltar para Projetos</a>
+                            <span style="margin-left:12px;"><a href="/logout">Sair</a></span>
+                        </div>
+                    </div>
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    {% endwith %}
+                </div>
+
+                <div class="section-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h2 class="section-title">Registro de Riscos</h2>
+                        {% if pode_criar %}
+                        <button class="btn-add" onclick="abrirModalCriar()">+ Novo Risco</button>
+                        {% endif %}
+                    </div>
+
+                    {% if riscos %}
+                    <div style="overflow-x: auto;">
+                        <table class="riscos-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">ID</th>
+                                    <th>Area</th>
+                                    <th>Tipo</th>
+                                    <th>Risco</th>
+                                    <th>Criado Por</th>
+                                    <th>Responsavel</th>
+                                    <th>Gatilho</th>
+                                    <th>Impacto no projeto</th>
+                                    <th>Consequencia</th>
+                                    <th>Impacto</th>
+                                    <th>Probabilidade</th>
+                                    <th>Nivel do Risco</th>
+                                    <th>Estrategia</th>
+                                    <th>Prevencao</th>
+                                    <th>Contingencia</th>
+                                    <th>Acompanhamento</th>
+                                    <th>Status</th>
+                                    <th>Data de Criacao</th>
+                                    <th>Data Proxima acao</th>
+                                    <th>Data Conclusao</th>
+                                    <th style="width: 120px;">Acoes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for risco in riscos %}
+                                <tr>
+                                    <td>#{{ risco.id }}</td>
+                                    <td>{{ risco.area or '-' }}</td>
+                                    <td>{{ risco.tipo_risco or '-' }}</td>
+                                    <td>{{ risco.risco[:40] ~ '...' if risco.risco|length > 40 else risco.risco }}</td>
+                                    <td>{{ risco.criado_por or '-' }}</td>
+                                    <td>{{ risco.responsavel or '-' }}</td>
+                                    <td>{{ risco.gatilho[:30] ~ '...' if risco.gatilho and risco.gatilho|length > 30 else risco.gatilho or '-' }}</td>
+                                    <td>{{ risco.impacto_projeto[:30] ~ '...' if risco.impacto_projeto and risco.impacto_projeto|length > 30 else risco.impacto_projeto or '-' }}</td>
+                                    <td>{{ risco.consequencia[:30] ~ '...' if risco.consequencia and risco.consequencia|length > 30 else risco.consequencia or '-' }}</td>
+                                    <td>{{ risco.impacto or '-' }}</td>
+                                    <td>{{ risco.probabilidade or '-' }}</td>
+                                    <td>{{ risco.nivel_risco or '-' }}</td>
+                                    <td>{{ risco.estrategia or '-' }}</td>
+                                    <td>{{ risco.prevencao[:30] ~ '...' if risco.prevencao and risco.prevencao|length > 30 else risco.prevencao or '-' }}</td>
+                                    <td>{{ risco.contingencia[:30] ~ '...' if risco.contingencia and risco.contingencia|length > 30 else risco.contingencia or '-' }}</td>
+                                    <td>{{ risco.acompanhamento[:30] ~ '...' if risco.acompanhamento and risco.acompanhamento|length > 30 else risco.acompanhamento or '-' }}</td>
+                                    <td>{{ risco.status or '-' }}</td>
+                                    <td>{{ risco.data_criacao.strftime('%d/%m/%Y') if risco.data_criacao else '-' }}</td>
+                                    <td>{{ risco.data_proxima_acao.strftime('%d/%m/%Y') if risco.data_proxima_acao else '-' }}</td>
+                                    <td>{{ risco.data_conclusao.strftime('%d/%m/%Y') if risco.data_conclusao else '-' }}</td>
+                                    <td>
+                                        {% if pode_editar %}
+                                        <button class="btn-action btn-edit"
+                                            onclick="abrirModalEditarFromButton(this)"
+                                            data-id="{{ risco.id }}"
+                                            data-area="{{ risco.area or '' }}"
+                                            data-tipo-risco="{{ risco.tipo_risco or '' }}"
+                                            data-risco="{{ risco.risco or '' }}"
+                                            data-responsavel="{{ risco.responsavel or '' }}"
+                                            data-gatilho="{{ risco.gatilho or '' }}"
+                                            data-impacto-projeto="{{ risco.impacto_projeto or '' }}"
+                                            data-consequencia="{{ risco.consequencia or '' }}"
+                                            data-impacto="{{ risco.impacto or '' }}"
+                                            data-probabilidade="{{ risco.probabilidade or '' }}"
+                                            data-nivel-risco="{{ risco.nivel_risco or '' }}"
+                                            data-estrategia="{{ risco.estrategia or '' }}"
+                                            data-prevencao="{{ risco.prevencao or '' }}"
+                                            data-contingencia="{{ risco.contingencia or '' }}"
+                                            data-acompanhamento="{{ risco.acompanhamento or '' }}"
+                                            data-status="{{ risco.status or '' }}"
+                                            data-data-proxima-acao="{{ risco.data_proxima_acao.strftime('%Y-%m-%d') if risco.data_proxima_acao else '' }}"
+                                            data-data-conclusao="{{ risco.data_conclusao.strftime('%Y-%m-%d') if risco.data_conclusao else '' }}">Editar</button>
+                                        {% endif %}
+                                        {% if pode_excluir %}
+                                        <button class="btn-action btn-delete" onclick="excluirRisco({{ risco.id }})">Excluir</button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p style="text-align: center; color: var(--text-secondary); margin: 20px 0;">Nenhum risco registrado ainda.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Criar Risco -->
+    <div id="modalCriar" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Novo Risco</h3>
+                <button class="btn-close" onclick="fecharModalCriar()">×</button>
+            </div>
+            <form method="POST">
+                <input type="hidden" name="action" value="criar">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Area</label>
+                        <input type="text" name="area" placeholder="Area afetada">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo do Risco *</label>
+                        <select name="tipo_risco" id="criarTipoRisco" required>
+                            <option value="">Selecione o tipo...</option>
+                            <option value="Ameaca">Ameaca</option>
+                            <option value="Oportunidade">Oportunidade</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Risco *</label>
+                        <textarea name="risco" placeholder="Descricao do risco" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Responsavel</label>
+                        <input type="text" name="responsavel" placeholder="Responsavel pelo risco">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Gatilho</label>
+                        <textarea name="gatilho" placeholder="Gatilho do risco"></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Impacto no projeto</label>
+                        <textarea name="impacto_projeto" placeholder="Impacto no projeto"></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Consequencia</label>
+                        <textarea name="consequencia" placeholder="Consequencia do risco"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Impacto (1-5)</label>
+                        <select name="impacto">
+                            <option value="">Selecione...</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Probabilidade (1-5)</label>
+                        <select name="probabilidade">
+                            <option value="">Selecione...</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Nivel do Risco</label>
+                        <select name="nivel_risco">
+                            <option value="">Selecione...</option>
+                            <option value="1 - Muito Alto">1 - Muito Alto</option>
+                            <option value="2 - Alto">2 - Alto</option>
+                            <option value="3 - Medio">3 - Medio</option>
+                            <option value="4 - Baixo">4 - Baixo</option>
+                            <option value="5 - Muito Baixo">5 - Muito Baixo</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Estrategia adotada</label>
+                        <select name="estrategia" id="criarEstrategia">
+                            <option value="">Selecione o tipo primeiro...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Prevencao</label>
+                        <textarea name="prevencao" placeholder="Prevencao"></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Contingencia</label>
+                        <textarea name="contingencia" placeholder="Contingencia"></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Acompanhamento</label>
+                        <textarea name="acompanhamento" placeholder="Acompanhamento"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="status">
+                            <option value="Planejado">Planejado</option>
+                            <option value="Iniciado">Iniciado</option>
+                            <option value="Parado">Parado</option>
+                            <option value="Concluido">Concluido</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Data Proxima acao</label>
+                        <input type="date" name="data_proxima_acao">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Data Conclusao</label>
+                        <input type="date" name="data_conclusao">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="fecharModalCriar()">Cancelar</button>
+                    <button type="submit" class="btn-submit">Criar Risco</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Editar Risco -->
+    <div id="modalEditar" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Risco</h3>
+                <button class="btn-close" onclick="fecharModalEditar()">×</button>
+            </div>
+            <form method="POST">
+                <input type="hidden" name="action" value="editar">
+                <input type="hidden" name="risco_id" id="editarId" value="">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Area</label>
+                        <input type="text" name="area" id="editarArea" placeholder="Area afetada">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo do Risco *</label>
+                        <select name="tipo_risco" id="editarTipoRisco" required>
+                            <option value="">Selecione o tipo...</option>
+                            <option value="Ameaca">Ameaça</option>
+                            <option value="Oportunidade">Oportunidade</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Risco *</label>
+                        <textarea name="risco" id="editarRisco" placeholder="Descricao do risco" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Responsavel</label>
+                        <input type="text" name="responsavel" id="editarResponsavel" placeholder="Responsavel pelo risco">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Gatilho</label>
+                        <textarea name="gatilho" id="editarGatilho" placeholder="Gatilho do risco"></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Impacto no projeto</label>
+                        <textarea name="impacto_projeto" id="editarImpactoProjeto" placeholder="Impacto no projeto"></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Consequencia</label>
+                        <textarea name="consequencia" id="editarConsequencia" placeholder="Consequencia do risco"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Impacto (1-5)</label>
+                        <select name="impacto" id="editarImpacto">
+                            <option value="">Selecione...</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Probabilidade (1-5)</label>
+                        <select name="probabilidade" id="editarProbabilidade">
+                            <option value="">Selecione...</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Nivel do Risco</label>
+                        <select name="nivel_risco" id="editarNivelRisco">
+                            <option value="">Selecione...</option>
+                            <option value="1 - Muito Alto">1 - Muito Alto</option>
+                            <option value="2 - Alto">2 - Alto</option>
+                            <option value="3 - Medio">3 - Medio</option>
+                            <option value="4 - Baixo">4 - Baixo</option>
+                            <option value="5 - Muito Baixo">5 - Muito Baixo</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Estrategia adotada</label>
+                        <select name="estrategia" id="editarEstrategia">
+                            <option value="">Selecione o tipo primeiro...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Prevencao</label>
+                        <textarea name="prevencao" id="editarPrevencao" placeholder="Prevencao"></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Contingencia</label>
+                        <textarea name="contingencia" id="editarContingencia" placeholder="Contingencia"></textarea>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label>Acompanhamento</label>
+                        <textarea name="acompanhamento" id="editarAcompanhamento" placeholder="Acompanhamento"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="status" id="editarStatus">
+                            <option value="Planejado">Planejado</option>
+                            <option value="Iniciado">Iniciado</option>
+                            <option value="Parado">Parado</option>
+                            <option value="Concluido">Concluido</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Data Proxima acao</label>
+                        <input type="date" name="data_proxima_acao" id="editarDataProximaAcao">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Data Conclusao</label>
+                        <input type="date" name="data_conclusao" id="editarDataConclusao">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="fecharModalEditar()">Cancelar</button>
+                    <button type="submit" class="btn-submit">Salvar Alteracoes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Excluir -->
+    <div id="modalExcluir" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirmar Exclusao</h3>
+                <button class="btn-close" onclick="fecharModalExcluir()">×</button>
+            </div>
+            <p style="margin: 20px 0; color: var(--text-secondary);">Tem certeza de que deseja excluir este risco? Esta acao nao pode ser desfeita.</p>
+            <form method="POST" id="formExcluir">
+                <input type="hidden" name="action" value="excluir">
+                <input type="hidden" name="risco_id" id="excluirId" value="">
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="fecharModalExcluir()">Cancelar</button>
+                    <button type="submit" class="btn-delete" style="padding: 10px 20px;">Sim, Excluir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const estrategiasAmeaca = ["Aceitar", "Evitar", "Transferir", "Mitigar"];
+        const estrategiasOportunidade = ["Aceitar", "Explorar", "Escalar", "Expandir Meta"];
+
+        function preencherEstrategias(selectEl, tipo, selectedValue) {
+            let items = [];
+            if (tipo === "Ameaca") {
+                items = estrategiasAmeaca;
+            } else if (tipo === "Oportunidade") {
+                items = estrategiasOportunidade;
+            }
+
+            selectEl.innerHTML = "";
+            const placeholder = document.createElement("option");
+            placeholder.value = "";
+            placeholder.textContent = items.length ? "Selecione..." : "Selecione o tipo primeiro...";
+            selectEl.appendChild(placeholder);
+
+            items.forEach(item => {
+                const opt = document.createElement("option");
+                opt.value = item;
+                opt.textContent = item;
+                selectEl.appendChild(opt);
+            });
+
+            if (selectedValue) {
+                selectEl.value = selectedValue;
+            }
+        }
+
+        function abrirModalCriar() {
+            document.getElementById('modalCriar').classList.add('active');
+        }
+
+        function fecharModalCriar() {
+            document.getElementById('modalCriar').classList.remove('active');
+        }
+
+        function abrirModalEditar() {
+            document.getElementById('modalEditar').classList.add('active');
+        }
+
+        function fecharModalEditar() {
+            document.getElementById('modalEditar').classList.remove('active');
+        }
+
+        function abrirModalEditarFromButton(button) {
+            const id = button.getAttribute('data-id');
+            const area = button.getAttribute('data-area');
+            const tipoRisco = button.getAttribute('data-tipo-risco');
+            const risco = button.getAttribute('data-risco');
+            const responsavel = button.getAttribute('data-responsavel');
+            const gatilho = button.getAttribute('data-gatilho');
+            const impactoProjeto = button.getAttribute('data-impacto-projeto');
+            const consequencia = button.getAttribute('data-consequencia');
+            const impacto = button.getAttribute('data-impacto');
+            const probabilidade = button.getAttribute('data-probabilidade');
+            const nivelRisco = button.getAttribute('data-nivel-risco');
+            const estrategia = button.getAttribute('data-estrategia');
+            const prevencao = button.getAttribute('data-prevencao');
+            const contingencia = button.getAttribute('data-contingencia');
+            const acompanhamento = button.getAttribute('data-acompanhamento');
+            const status = button.getAttribute('data-status');
+            const dataProximaAcao = button.getAttribute('data-data-proxima-acao');
+            const dataConclusao = button.getAttribute('data-data-conclusao');
+
+            document.getElementById('editarId').value = id;
+            document.getElementById('editarArea').value = area;
+            document.getElementById('editarTipoRisco').value = tipoRisco;
+            document.getElementById('editarRisco').value = risco;
+            document.getElementById('editarResponsavel').value = responsavel;
+            document.getElementById('editarGatilho').value = gatilho;
+            document.getElementById('editarImpactoProjeto').value = impactoProjeto;
+            document.getElementById('editarConsequencia').value = consequencia;
+            document.getElementById('editarImpacto').value = impacto;
+            document.getElementById('editarProbabilidade').value = probabilidade;
+            document.getElementById('editarNivelRisco').value = nivelRisco;
+            document.getElementById('editarStatus').value = status;
+            document.getElementById('editarPrevencao').value = prevencao;
+            document.getElementById('editarContingencia').value = contingencia;
+            document.getElementById('editarAcompanhamento').value = acompanhamento;
+            document.getElementById('editarDataProximaAcao').value = dataProximaAcao;
+            document.getElementById('editarDataConclusao').value = dataConclusao;
+
+            const editarEstrategia = document.getElementById('editarEstrategia');
+            preencherEstrategias(editarEstrategia, tipoRisco, estrategia);
+
+            abrirModalEditar();
+        }
+
+        function excluirRisco(id) {
+            document.getElementById('excluirId').value = id;
+            document.getElementById('modalExcluir').classList.add('active');
+        }
+
+        function fecharModalExcluir() {
+            document.getElementById('modalExcluir').classList.remove('active');
+        }
+
+        document.getElementById('criarTipoRisco').addEventListener('change', function() {
+            const selectEl = document.getElementById('criarEstrategia');
+            preencherEstrategias(selectEl, this.value, "");
+        });
+
+        document.getElementById('editarTipoRisco').addEventListener('change', function() {
+            const selectEl = document.getElementById('editarEstrategia');
+            preencherEstrategias(selectEl, this.value, "");
+        });
+
+        // Fechar modal ao clicar fora dele
+        window.addEventListener('click', function(event) {
+            const modais = document.querySelectorAll('.modal.active');
+            modais.forEach(modal => {
+                if (event.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

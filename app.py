@@ -217,6 +217,55 @@ class SolicitacaoMudanca(db.Model):
     projeto = db.relationship("Projeto", backref=db.backref("solicitacoes_mudanca", lazy=True))
 
 
+class Incidente(db.Model):
+    __tablename__ = "incidentes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    projeto_id = db.Column(db.Integer, db.ForeignKey("projetos.id"), nullable=False)
+    atividade_id = db.Column(db.Integer, db.ForeignKey("atividades.id"), nullable=True)
+    descricao = db.Column(db.Text, nullable=False)
+    acompanhamento = db.Column(db.Text)
+    responsavel = db.Column(db.String(100))
+    prioridade = db.Column(db.String(50))  # 1 - Muito Alto, 2 - Alto, 3 - Médio, 4 - Baixo, 5 - Muito Baixo
+    status = db.Column(db.String(50))  # Criado, Em andamento, Aguardando Solicitante, Aguardando Externo, Encaminhado Responsavel, Proposta de solução, Concluído
+    previsao_original = db.Column(db.DateTime)
+    previsao_revisada = db.Column(db.DateTime)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+    data_ultima_modificacao = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    conclusao = db.Column(db.DateTime)
+    
+    projeto = db.relationship("Projeto", backref=db.backref("incidentes", lazy=True))
+    atividade = db.relationship("Atividade", backref=db.backref("incidentes", lazy=True))
+
+
+class Risco(db.Model):
+    __tablename__ = "riscos"
+
+    id = db.Column(db.Integer, primary_key=True)
+    projeto_id = db.Column(db.Integer, db.ForeignKey("projetos.id"), nullable=False)
+    area = db.Column(db.String(100))
+    tipo_risco = db.Column(db.String(50))  # Ameaca, Oportunidade
+    risco = db.Column(db.Text, nullable=False)
+    criado_por = db.Column(db.String(100))
+    responsavel = db.Column(db.String(100))
+    gatilho = db.Column(db.Text)
+    impacto_projeto = db.Column(db.Text)
+    consequencia = db.Column(db.Text)
+    impacto = db.Column(db.String(10))  # 1-5
+    probabilidade = db.Column(db.String(10))  # 1-5
+    nivel_risco = db.Column(db.String(50))  # 1 - Muito Alto, 2 - Alto, 3 - Medio, 4 - Baixo, 5 - Muito Baixo
+    estrategia = db.Column(db.String(50))
+    prevencao = db.Column(db.Text)
+    contingencia = db.Column(db.Text)
+    acompanhamento = db.Column(db.Text)
+    status = db.Column(db.String(50))  # Concluido, Planejado, Iniciado, Parado
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+    data_proxima_acao = db.Column(db.DateTime)
+    data_conclusao = db.Column(db.DateTime)
+
+    projeto = db.relationship("Projeto", backref=db.backref("riscos", lazy=True))
+
+
 class Perfil(db.Model):
     __tablename__ = "perfis"
 
@@ -242,6 +291,16 @@ class Perfil(db.Model):
     pode_criar_mudanca = db.Column(db.Boolean, default=False)
     pode_editar_mudanca = db.Column(db.Boolean, default=False)
     pode_excluir_mudanca = db.Column(db.Boolean, default=False)
+    
+    # Permissões de Incidentes
+    pode_criar_incidente = db.Column(db.Boolean, default=False)
+    pode_editar_incidente = db.Column(db.Boolean, default=False)
+    pode_excluir_incidente = db.Column(db.Boolean, default=False)
+
+    # Permissões de Riscos
+    pode_criar_risco = db.Column(db.Boolean, default=False)
+    pode_editar_risco = db.Column(db.Boolean, default=False)
+    pode_excluir_risco = db.Column(db.Boolean, default=False)
     
     is_default = db.Column(db.Boolean, default=False)  # Para perfis padrão
 
@@ -296,6 +355,9 @@ def has_permission(projeto_id, permission_name, user_id=None):
     
     if not perfil:
         return False
+
+    if perfil.nome == "Administrador":
+        return True
     
     return getattr(perfil, permission_name, False)
 
@@ -347,6 +409,12 @@ def adicionar_colunas_faltando():
             "pode_criar_mudanca": "ALTER TABLE perfis ADD COLUMN pode_criar_mudanca BOOLEAN DEFAULT false",
             "pode_editar_mudanca": "ALTER TABLE perfis ADD COLUMN pode_editar_mudanca BOOLEAN DEFAULT false",
             "pode_excluir_mudanca": "ALTER TABLE perfis ADD COLUMN pode_excluir_mudanca BOOLEAN DEFAULT false",
+            "pode_criar_incidente": "ALTER TABLE perfis ADD COLUMN pode_criar_incidente BOOLEAN DEFAULT false",
+            "pode_editar_incidente": "ALTER TABLE perfis ADD COLUMN pode_editar_incidente BOOLEAN DEFAULT false",
+            "pode_excluir_incidente": "ALTER TABLE perfis ADD COLUMN pode_excluir_incidente BOOLEAN DEFAULT false",
+            "pode_criar_risco": "ALTER TABLE perfis ADD COLUMN pode_criar_risco BOOLEAN DEFAULT false",
+            "pode_editar_risco": "ALTER TABLE perfis ADD COLUMN pode_editar_risco BOOLEAN DEFAULT false",
+            "pode_excluir_risco": "ALTER TABLE perfis ADD COLUMN pode_excluir_risco BOOLEAN DEFAULT false",
         }
         
         # Adicionar colunas que faltam
@@ -494,6 +562,12 @@ def projetos():
                 pode_criar_mudanca=True,
                 pode_editar_mudanca=True,
                 pode_excluir_mudanca=True,
+                pode_criar_incidente=True,
+                pode_editar_incidente=True,
+                pode_excluir_incidente=True,
+                pode_criar_risco=True,
+                pode_editar_risco=True,
+                pode_excluir_risco=True,
                 is_default=True
             )
             perfil_membro = Perfil(
@@ -511,6 +585,12 @@ def projetos():
                 pode_criar_mudanca=True,
                 pode_editar_mudanca=True,
                 pode_excluir_mudanca=False,
+                pode_criar_incidente=True,
+                pode_editar_incidente=True,
+                pode_excluir_incidente=True,
+                pode_criar_risco=True,
+                pode_editar_risco=True,
+                pode_excluir_risco=True,
                 is_default=True
             )
             db.session.add(perfil_admin)
@@ -1426,6 +1506,12 @@ def gerenciar_acessos(projeto_id):
                 pode_criar_mudanca=request.form.get("pode_criar_mudanca") == "on",
                 pode_editar_mudanca=request.form.get("pode_editar_mudanca") == "on",
                 pode_excluir_mudanca=request.form.get("pode_excluir_mudanca") == "on",
+                pode_criar_incidente=request.form.get("pode_criar_incidente") == "on",
+                pode_editar_incidente=request.form.get("pode_editar_incidente") == "on",
+                pode_excluir_incidente=request.form.get("pode_excluir_incidente") == "on",
+                pode_criar_risco=request.form.get("pode_criar_risco") == "on",
+                pode_editar_risco=request.form.get("pode_editar_risco") == "on",
+                pode_excluir_risco=request.form.get("pode_excluir_risco") == "on",
                 is_default=False
             )
             db.session.add(novo_perfil)
@@ -1463,6 +1549,12 @@ def gerenciar_acessos(projeto_id):
             perfil.pode_criar_mudanca = request.form.get("pode_criar_mudanca") == "on"
             perfil.pode_editar_mudanca = request.form.get("pode_editar_mudanca") == "on"
             perfil.pode_excluir_mudanca = request.form.get("pode_excluir_mudanca") == "on"
+            perfil.pode_criar_incidente = request.form.get("pode_criar_incidente") == "on"
+            perfil.pode_editar_incidente = request.form.get("pode_editar_incidente") == "on"
+            perfil.pode_excluir_incidente = request.form.get("pode_excluir_incidente") == "on"
+            perfil.pode_criar_risco = request.form.get("pode_criar_risco") == "on"
+            perfil.pode_editar_risco = request.form.get("pode_editar_risco") == "on"
+            perfil.pode_excluir_risco = request.form.get("pode_excluir_risco") == "on"
             db.session.commit()
             flash("Perfil atualizado com sucesso", "success")
         return redirect(url_for("gerenciar_acessos", projeto_id=projeto_id))
@@ -1727,6 +1819,258 @@ def solicitacoes_mudanca(projeto_id):
         pode_gerenciar_membros=pode_gerenciar_membros,
         usuario_atual=current_user.username
     )
+
+
+@app.route("/projetos/<int:projeto_id>/incidentes", methods=["GET", "POST"])
+@login_required
+def incidentes(projeto_id):
+    projeto = Projeto.query.get_or_404(projeto_id)
+    
+    # Verificar se o usuário é membro do projeto
+    membro = ProjetoMembro.query.filter_by(projeto_id=projeto_id, user_id=current_user.id).first()
+    if not membro:
+        abort(403)
+
+    invalid_date = object()
+
+    def parse_date_field(field_name, label):
+        value = request.form.get(field_name)
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            flash(f"Data inválida em {label}. Use o formato AAAA-MM-DD.", "danger")
+            return invalid_date
+    
+    # Criar incidente
+    if request.method == "POST" and request.form.get("action") == "criar":
+        previsao_original = parse_date_field("previsao_original", "Previsão Original")
+        previsao_revisada = parse_date_field("previsao_revisada", "Previsão Revisada")
+        if previsao_original is invalid_date or previsao_revisada is invalid_date:
+            return redirect(url_for("incidentes", projeto_id=projeto_id))
+        
+        atividade_id = request.form.get("atividade_id")
+        incidente = Incidente(
+            projeto_id=projeto_id,
+            atividade_id=int(atividade_id) if atividade_id else None,
+            descricao=request.form.get("descricao"),
+            acompanhamento=request.form.get("acompanhamento"),
+            responsavel=request.form.get("responsavel"),
+            prioridade=request.form.get("prioridade"),
+            status=request.form.get("status", "Criado"),
+            previsao_original=previsao_original,
+            previsao_revisada=previsao_revisada
+        )
+        db.session.add(incidente)
+        db.session.commit()
+        flash("Incidente criado com sucesso", "success")
+        return redirect(url_for("incidentes", projeto_id=projeto_id))
+    
+    # Editar incidente
+    if request.method == "POST" and request.form.get("action") == "editar":
+        previsao_original = parse_date_field("previsao_original", "Previsão Original")
+        previsao_revisada = parse_date_field("previsao_revisada", "Previsão Revisada")
+        conclusao = parse_date_field("conclusao", "Conclusão")
+        
+        if previsao_original is invalid_date or previsao_revisada is invalid_date or conclusao is invalid_date:
+            return redirect(url_for("incidentes", projeto_id=projeto_id))
+        
+        incidente_id = request.form.get("incidente_id")
+        incidente = Incidente.query.get(incidente_id)
+        if incidente and incidente.projeto_id == projeto_id:
+            atividade_id = request.form.get("atividade_id")
+            incidente.atividade_id = int(atividade_id) if atividade_id else None
+            incidente.descricao = request.form.get("descricao")
+            incidente.acompanhamento = request.form.get("acompanhamento")
+            incidente.responsavel = request.form.get("responsavel")
+            incidente.prioridade = request.form.get("prioridade")
+            incidente.status = request.form.get("status")
+            incidente.previsao_original = previsao_original
+            incidente.previsao_revisada = previsao_revisada
+            incidente.conclusao = conclusao
+            incidente.data_ultima_modificacao = datetime.utcnow()
+            db.session.commit()
+            flash("Incidente atualizado com sucesso", "success")
+        return redirect(url_for("incidentes", projeto_id=projeto_id))
+    
+    # Excluir incidente
+    if request.method == "POST" and request.form.get("action") == "excluir":
+        incidente_id = request.form.get("incidente_id")
+        incidente = Incidente.query.get(incidente_id)
+        if incidente and incidente.projeto_id == projeto_id:
+            db.session.delete(incidente)
+            db.session.commit()
+            flash("Incidente excluído com sucesso", "success")
+        return redirect(url_for("incidentes", projeto_id=projeto_id))
+    
+    # Obter dados
+    incidentes_list = Incidente.query.filter_by(projeto_id=projeto_id).order_by(Incidente.data_criacao.desc()).all()
+    
+    # Obter todas as atividades do projeto para poder fazer link
+    atividades = Atividade.query.filter(
+        Atividade.cenario_id.in_(
+            db.session.query(Cenario.id).filter(
+                Cenario.fase_id.in_(
+                    db.session.query(Fase.id).filter(Fase.projeto_id == projeto_id)
+                )
+            )
+        )
+    ).all()
+    
+    # Qualquer membro do projeto pode criar/editar/excluir incidentes
+    pode_criar = True
+    pode_editar = True
+    pode_excluir = True
+    pode_gerenciar_membros = has_permission(projeto_id, "pode_gerenciar_membros")
+    
+    return render_template(
+        "incidentes.html",
+        projeto=projeto,
+        incidentes=incidentes_list,
+        atividades=atividades,
+        pode_criar=pode_criar,
+        pode_editar=pode_editar,
+        pode_excluir=pode_excluir,
+        pode_gerenciar_membros=pode_gerenciar_membros,
+        usuario_atual=current_user.username
+    )
+
+
+@app.route("/projetos/<int:projeto_id>/riscos", methods=["GET", "POST"])
+@login_required
+def riscos(projeto_id):
+    projeto = Projeto.query.get_or_404(projeto_id)
+
+    # Verificar se o usuario e membro do projeto
+    membro = ProjetoMembro.query.filter_by(projeto_id=projeto_id, user_id=current_user.id).first()
+    if not membro:
+        abort(403)
+
+    invalid_date = object()
+
+    def parse_date_field(field_name, label):
+        value = request.form.get(field_name)
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            flash(f"Data invalida em {label}. Use o formato AAAA-MM-DD.", "danger")
+            return invalid_date
+
+    # Criar risco
+    if request.method == "POST" and request.form.get("action") == "criar":
+        data_proxima_acao = parse_date_field("data_proxima_acao", "Data Proxima acao")
+        data_conclusao = parse_date_field("data_conclusao", "Data Conclusao")
+        if data_proxima_acao is invalid_date or data_conclusao is invalid_date:
+            return redirect(url_for("riscos", projeto_id=projeto_id))
+
+        risco = Risco(
+            projeto_id=projeto_id,
+            area=request.form.get("area"),
+            tipo_risco=request.form.get("tipo_risco"),
+            risco=request.form.get("risco"),
+            criado_por=current_user.username,
+            responsavel=request.form.get("responsavel"),
+            gatilho=request.form.get("gatilho"),
+            impacto_projeto=request.form.get("impacto_projeto"),
+            consequencia=request.form.get("consequencia"),
+            impacto=request.form.get("impacto"),
+            probabilidade=request.form.get("probabilidade"),
+            nivel_risco=request.form.get("nivel_risco"),
+            estrategia=request.form.get("estrategia"),
+            prevencao=request.form.get("prevencao"),
+            contingencia=request.form.get("contingencia"),
+            acompanhamento=request.form.get("acompanhamento"),
+            status=request.form.get("status"),
+            data_proxima_acao=data_proxima_acao,
+            data_conclusao=data_conclusao,
+        )
+        db.session.add(risco)
+        db.session.commit()
+        flash("Risco criado com sucesso", "success")
+        return redirect(url_for("riscos", projeto_id=projeto_id))
+
+    # Editar risco
+    if request.method == "POST" and request.form.get("action") == "editar":
+        data_proxima_acao = parse_date_field("data_proxima_acao", "Data Proxima acao")
+        data_conclusao = parse_date_field("data_conclusao", "Data Conclusao")
+        if data_proxima_acao is invalid_date or data_conclusao is invalid_date:
+            return redirect(url_for("riscos", projeto_id=projeto_id))
+
+        risco_id = request.form.get("risco_id")
+        risco = Risco.query.get(risco_id)
+        if risco and risco.projeto_id == projeto_id:
+            risco.area = request.form.get("area")
+            risco.tipo_risco = request.form.get("tipo_risco")
+            risco.risco = request.form.get("risco")
+            risco.responsavel = request.form.get("responsavel")
+            risco.gatilho = request.form.get("gatilho")
+            risco.impacto_projeto = request.form.get("impacto_projeto")
+            risco.consequencia = request.form.get("consequencia")
+            risco.impacto = request.form.get("impacto")
+            risco.probabilidade = request.form.get("probabilidade")
+            risco.nivel_risco = request.form.get("nivel_risco")
+            risco.estrategia = request.form.get("estrategia")
+            risco.prevencao = request.form.get("prevencao")
+            risco.contingencia = request.form.get("contingencia")
+            risco.acompanhamento = request.form.get("acompanhamento")
+            risco.status = request.form.get("status")
+            risco.data_proxima_acao = data_proxima_acao
+            risco.data_conclusao = data_conclusao
+            db.session.commit()
+            flash("Risco atualizado com sucesso", "success")
+        return redirect(url_for("riscos", projeto_id=projeto_id))
+
+    # Excluir risco
+    if request.method == "POST" and request.form.get("action") == "excluir":
+        risco_id = request.form.get("risco_id")
+        risco = Risco.query.get(risco_id)
+        if risco and risco.projeto_id == projeto_id:
+            db.session.delete(risco)
+            db.session.commit()
+            flash("Risco excluido com sucesso", "success")
+        return redirect(url_for("riscos", projeto_id=projeto_id))
+
+    riscos_list = Risco.query.filter_by(projeto_id=projeto_id).order_by(Risco.data_criacao.desc()).all()
+
+    # Qualquer membro do projeto pode criar/editar/excluir riscos
+    pode_criar = True
+    pode_editar = True
+    pode_excluir = True
+    pode_gerenciar_membros = has_permission(projeto_id, "pode_gerenciar_membros")
+
+    return render_template(
+        "riscos.html",
+        projeto=projeto,
+        riscos=riscos_list,
+        pode_criar=pode_criar,
+        pode_editar=pode_editar,
+        pode_excluir=pode_excluir,
+        pode_gerenciar_membros=pode_gerenciar_membros,
+        usuario_atual=current_user.username,
+    )
+
+
+# Listas constantes para status e prioridade
+LISTA_STATUS_INCIDENTE = [
+    "Criado",
+    "Em andamento",
+    "Aguardando Solicitante",
+    "Aguardando Externo",
+    "Encaminhado Responsavel",
+    "Proposta de solução",
+    "Concluído"
+]
+
+LISTA_PRIORIDADE_INCIDENTE = [
+    "1 - Muito Alto",
+    "2 - Alto",
+    "3 - Médio",
+    "4 - Baixo",
+    "5 - Muito Baixo"
+]
 
 
 # ------------------------------------------------------------------------------
