@@ -1,0 +1,53 @@
+LICOES APRENDIDAS - GCP (Cloud Run + Cloud SQL + Secret Manager)
+Data: 2026-02-15
+
+OBJETIVO DESTE ARQUIVO
+- Usar como roteiro rapido de diagnostico e correcao quando houver falha de autenticacao no PostgreSQL.
+
+SINTOMAS E INDICADORES
+- App cai para SQLite e perde persistencia.
+- Log: "password authentication failed for user".
+- Log: "Usando SQLite local".
+- /db-check falha com sqlite3.OperationalError "no such function: current_database".
+
+CAUSA MAIS PROVAVEL (HISTORICO)
+- Secret DB_PASS corrompido por encoding do PowerShell (Write-Output/echo pipe).
+
+CHECKLIST DE DIAGNOSTICO (ORDEM RECOMENDADA)
+1) Validar secret
+	- Ler o secret e conferir tamanho exato da senha.
+	- Se o tamanho estiver errado, o problema e o secret.
+
+2) Validar Cloud Run
+	- DB_PASS deve estar vindo de secretKeyRef.
+	- Evitar env vars antigas que mascaram o Secret Manager.
+
+3) Validar logs do app
+	- Confirmar "DB_PASS carregado (X caracteres)".
+	- Confirmar "Conectando ao Cloud SQL".
+
+4) Validar endpoints
+	- /health deve retornar status ok.
+	- /db-check deve retornar DB e USER.
+
+CORRECAO PADRAO (RAPIDA)
+1) Recriar DB_PASS corretamente
+	- Criar arquivo temporario com encoding ASCII/UTF-8 sem BOM.
+	- Usar gcloud secrets create --data-file e remover o arquivo.
+	- Conferir tamanho do secret apos criar.
+
+2) Reconfigurar Cloud Run
+	- Usar --set-secrets=DB_PASS=db-pass:latest,SECRET_KEY=secret-key:latest.
+	- Se necessario, usar --clear-secrets antes de setar novamente.
+
+3) Testar
+	- /db-check e /health.
+	- Logs devem mostrar "Conectando ao Cloud SQL".
+
+NOTAS IMPORTANTES
+- URLs do Cloud Run podem mudar; sempre confirmar a URL atual.
+- Python 3.9 gera warnings de EOL; planejar upgrade para 3.10+.
+
+RESUMO FINAL
+- O problema principal nao foi o PostgreSQL, e sim o secret corrompido.
+- A correcao foi recriar o secret com encoding correto e garantir Cloud Run lendo via secrets.
