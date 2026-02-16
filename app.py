@@ -60,38 +60,11 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "chave-secreta-dev")
 
 
 def get_secret_or_env(key, default=""):
-    """Obtém secret de variável de ambiente, arquivo Cloud Run, ou padrão"""
-    # Tentar ambiente
-    value = os.environ.get(key)
+    """Obtém secret de variável de ambiente ou padrão"""
+    value = os.environ.get(key, "").strip()
     if value:
-        print(f"[DEBUG get_secret_or_env] {key} carregado de os.environ")
+        print(f"[DEBUG get_secret_or_env] {key}={value[:20]}..." if len(value) > 20 else f"[DEBUG get_secret_or_env] {key}={value}")
         return value
-    
-    # Tentar arquivo de secret do Cloud Run (/var/run/secrets/cloud.google.com/secret/{secret_name}/latest)
-    secret_path = f"/var/run/secrets/cloud.google.com/secret/{key.lower().replace('_', '-')}/latest"
-    print(f"[DEBUG get_secret_or_env] Tentando ler {key} de {secret_path}")
-    if os.path.exists(secret_path):
-        try:
-            with open(secret_path, "r") as f:
-                value = f.read().strip()
-                print(f"[OK] {key} carregado de arquivo Cloud Run")
-                return value
-        except Exception as e:
-            print(f"[ERROR get_secret_or_env] Erro ao ler secret {key} de arquivo: {e}")
-    else:
-        print(f"[DEBUG get_secret_or_env] Arquivo nao existe: {secret_path}")
-    
-    # Tentar format alternativo de Cloud Run secret
-    alt_path = f"/var/run/secrets/google.com/secret_{key.lower()}"
-    if os.path.exists(alt_path):
-        try:
-            with open(alt_path, "r") as f:
-                value = f.read().strip()
-                print(f"[OK] {key} carregado de {alt_path}")
-                return value
-        except Exception as e:
-            print(f"[WARN] Erro ao ler de {alt_path}: {e}")
-    
     print(f"[WARN get_secret_or_env] {key} nao encontrado, usando default")
     return default
 

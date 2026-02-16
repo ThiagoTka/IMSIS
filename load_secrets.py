@@ -1,6 +1,6 @@
 """
 Script para carregar secrets do Google Secret Manager como variáveis de ambiente
-Necessário porque Cloud Run não expõe secrets diretamente como env vars
+Necessário porque Cloud Run com --set-secrets frequentemente nao funciona corretamente
 """
 
 import os
@@ -8,7 +8,7 @@ import sys
 
 
 def load_secret(secret_id):
-    """Carrega um secret do Google Secret Manager"""
+    """Carrega um secret do Google Secret Manager API"""
     try:
         from google.cloud import secretmanager
         
@@ -16,35 +16,50 @@ def load_secret(secret_id):
         project_id = os.environ.get("GCP_PROJECT", "imsis-486003")
         
         name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+        print(f"[DEBUG load_secret] Tentando ler {secret_id} de {name}")
         response = client.access_secret_version(request={"name": name})
         secret_string = response.payload.data.decode("UTF-8")
         
         if secret_string:
-            print(f"[OK] Secret '{secret_id}' carregado com sucesso")
+            print(f"[OK] Secret '{secret_id}' carregado com sucesso ({len(secret_string)} chars)")
             return secret_string
         else:
             print(f"[WARN] Secret '{secret_id}' está vazio")
             return None
             
     except Exception as e:
-        print(f"[WARN] Erro ao carregar secret {secret_id}: {type(e).__name__}: {e}")
+        print(f"[WARN] Erro ao carregar secret {secret_id} da API: {type(e).__name__}: {e}")
         return None
 
 
 def load_secrets():
     """Carrega todos os secrets necessários"""
     
-    # Verificar se secrets ja estao em os.environ (carregados pelo Cloud Run ou .env)
-    if os.environ.get("DB_PASS"):
-        print("[INFO] DB_PASS ja esta em os.environ, secrets parecem ja carregados")
-        # Mas ainda tentar carregar SMTP secrets do arquivo se não estiverem em env
+    print("[DEBUG load_secrets] Iniciando carregamento de secrets")
+    
+    # Check 1: Se ao menos DB_PASS ja esta em os.environ LIMPO (sem BOM)
+    # isso significa que o --set-secrets do Cloud Run funcionou
+    # Mas os SMTP secrets nao estao, entao vamos carregar via API
+    
+    db_pass = os.environ.get("DB_PASS", "").strip()
+    
+    if db_pass and not db_pass.startswith("ï»¿"):  # Nao tem BOM
+        print("[INFO] DB_PASS ja esta em os.environ (Cloud Run --set-secrets)")
+        # Mas ainda tentar carregar SMTP secrets se nao estiverem setados
         if not os.environ.get("SMTP_HOST"):
-            try_load_from_cloud_run_files()
+            print("[WARN] SMTP_HOST nao encontrado em os.environ, tentando carregar da API...")
+            load_secrets_from_api()
         return
     
-    # Tentar carregar do .env local
+    # Se DB_PASS tiver BOM ou estiver vazio, precisa recarregar TUDO da API
+    if db_pass.startswith("ï»¿"):
+        print("[WARN] DB_PASS tem BOM (corrupao), recarregando todos os secrets da API")
+    else:
+        print("[INFO] DB_PASS nao encontrado em os.environ, carregando da API")
+    
+    # Check 2: Se .env existe (desenvolvimento local)
     if os.path.exists(".env"):
-        print("[INFO] Arquivo .env encontrado, carregando variaveis...")
+        print("[INFO] Arquivo .env encontrado, carregando variaveis locais...")
         with open(".env") as f:
             for line in f:
                 line = line.strip()
@@ -55,13 +70,13 @@ def load_secrets():
         print("[OK] Variaveis carregadas do .env")
         return
     
-    # Tentar carregar dos arquivos de secret do Cloud Run
-    print("[INFO] Tentando carregar secrets de arquivos Cloud Run...")
-    if try_load_from_cloud_run_files():
-        return
-    
-    # Carregar secrets do GCP (fallback)
-    print("[INFO] Carregando secrets do Google Secret Manager...")
+    # Check 3: Carregar todos os secrets da API (Cloud Run production)
+    print("[INFO] Carregando secrets do Google Secret Manager API...")
+    load_secrets_from_api()
+
+
+def load_secrets_from_api():
+    """Carrega todos os secrets diretamente da Google Secret Manager API"""
     
     secrets_to_load = {
         "DB_PASS": "db-pass",
@@ -75,57 +90,27 @@ def load_secrets():
     
     loaded_count = 0
     for env_var, secret_id in secrets_to_load.items():
-        if os.environ.get(env_var):
+        if os.environ.get(env_var) and not os.environ.get(env_var).startswith("ï»¿"):
+            print(f"[DEBUG] {env_var} ja esta em os.environ (saltando)")
             loaded_count += 1
             continue
+        
         secret_value = load_secret(secret_id)
         if secret_value:
+            secret_value = secret_value.strip()  # Remove whitespace/BOM
             os.environ[env_var] = secret_value
+            print(f"[OK] {env_var} atribuido de {secret_id}")
             loaded_count += 1
         else:
-            print(f"Erro ao carregar {env_var}")
+            print(f"[ERROR] Falha ao carregar {env_var} de {secret_id}")
     
     if loaded_count == len(secrets_to_load):
-        print(f"[OK] Todos os {loaded_count} secrets carregados com sucesso")
+        print(f"[OK] Todos os {loaded_count} secrets carregados com sucesso da API")
     else:
-        print(f"[WARN] Apenas {loaded_count}/{len(secrets_to_load)} secrets carregados")
-
-
-def try_load_from_cloud_run_files():
-    """Tenta carregar secrets dos arquivos do Cloud Run"""
-    print("[DEBUG] Tentando carregar secrets de /var/run/secrets/...")
-    
-    secrets_mapping = {
-        "DB_PASS": "db-pass",
-        "SECRET_KEY": "secret-key",
-        "SMTP_HOST": "smtp-host",
-        "SMTP_PORT": "smtp-port",
-        "SMTP_USER": "smtp-user",
-        "SMTP_PASS": "smtp-pass",
-        "SMTP_FROM": "smtp-from",
-    }
-    
-    loaded_count = 0
-    for env_var, secret_name in secrets_mapping.items():
-        # Path format: /var/run/secrets/cloud.google.com/secret/{secret_name}/latest
-        secret_path = f"/var/run/secrets/cloud.google.com/secret/{secret_name}/latest"
-        if os.path.exists(secret_path):
-            try:
-                with open(secret_path, "r") as f:
-                    value = f.read().strip()
-                    os.environ[env_var] = value
-                    print(f"[OK] {env_var} carregado de {secret_path}")
-                    loaded_count += 1
-            except Exception as e:
-                print(f"[WARN] Erro ao ler {secret_path}: {e}")
-    
-    if loaded_count > 0:
-        print(f"[OK] {loaded_count} secrets carregados de arquivos Cloud Run")
-        return True
-    
-    print("[DEBUG] Nenhum arquivo de secret found em /var/run/secrets/")
-    return False
+        print(f"[WARN] Apenas {loaded_count}/{len(secrets_to_load)} secrets carregados da API")
+        print(f"[ERROR] Faltam {len(secrets_to_load) - loaded_count} secrets!")
 
 
 if __name__ == "__main__":
     load_secrets()
+
