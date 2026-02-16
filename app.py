@@ -470,25 +470,39 @@ def adicionar_colunas_faltando():
         # Colunas de users para confirmacao de e-mail
         colunas_users_existentes = [c["name"] for c in inspector.get_columns("users")]
         colunas_users_necessarias = {
-            "email_verified": "ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT false",
-            "email_verification_token_hash": "ALTER TABLE users ADD COLUMN email_verification_token_hash TEXT",
-            "email_verification_expires_at": "ALTER TABLE users ADD COLUMN email_verification_expires_at TIMESTAMP",
-            "password_reset_token_hash": "ALTER TABLE users ADD COLUMN password_reset_token_hash TEXT",
-            "password_reset_expires_at": "ALTER TABLE users ADD COLUMN password_reset_expires_at TIMESTAMP",
+            "email_verified": ("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT false", "ALTER TABLE users ADD COLUMN email_verified SMALLINT DEFAULT 0"),
+            "email_verification_token_hash": ("ALTER TABLE users ADD COLUMN email_verification_token_hash TEXT", "ALTER TABLE users ADD COLUMN email_verification_token_hash VARCHAR(255)"),
+            "email_verification_expires_at": ("ALTER TABLE users ADD COLUMN email_verification_expires_at TIMESTAMP", "ALTER TABLE users ADD COLUMN email_verification_expires_at TIMESTAMP"),
+            "password_reset_token_hash": ("ALTER TABLE users ADD COLUMN password_reset_token_hash TEXT", "ALTER TABLE users ADD COLUMN password_reset_token_hash VARCHAR(255)"),
+            "password_reset_expires_at": ("ALTER TABLE users ADD COLUMN password_reset_expires_at TIMESTAMP", "ALTER TABLE users ADD COLUMN password_reset_expires_at TIMESTAMP"),
         }
         adicionou_email_verified = False
-        for coluna, sql in colunas_users_necessarias.items():
+        for coluna, sqls in colunas_users_necessarias.items():
             if coluna not in colunas_users_existentes:
+                sql = sqls[0]  # SQLite syntax
+                sql_pg = sqls[1]  # PostgreSQL syntax
                 try:
-                    db.session.execute(text(sql))
-                    db.session.commit()
+                    try:
+                        db.session.execute(text(sql))
+                        db.session.commit()
+                    except Exception as e1:
+                        # Tenta sintaxe PostgreSQL se SQLite falhar
+                        if "postgresql" in str(app.config.get("SQLALCHEMY_DATABASE_URI", "")).lower():
+                            db.session.rollback()
+                            db.session.execute(text(sql_pg))
+                            db.session.commit()
+                        else:
+                            raise e1
+                    
                     if coluna == "email_verified":
                         adicionou_email_verified = True
                     print(f"[OK] Coluna users.{coluna} adicionada com sucesso")
                 except Exception as e:
                     db.session.rollback()
-                    if "duplicate column" not in str(e).lower():
+                    if "duplicate column" not in str(e).lower() and "already exists" not in str(e).lower():
                         print(f"[WARN] Erro ao adicionar users.{coluna}: {e}")
+                    else:
+                        print(f"[OK] Coluna users.{coluna} ja existe")
 
         if adicionou_email_verified:
             try:
@@ -631,6 +645,35 @@ def test_db():
         return f"ERRO DB: {e}", 500
 
 
+@app.route("/check-columns")
+def check_columns():
+    """Debug endpoint para verificar colunas do banco"""
+    try:
+        from sqlalchemy import inspect as sa_inspect
+        inspector = sa_inspect(db.engine)
+        
+        if "users" not in inspector.get_table_names():
+            return "ERRO: Tabela 'users' nao existe", 500
+        
+        colunas = [c["name"] for c in inspector.get_columns("users")]
+        
+        necessarias = [
+            "id", "username", "email", "password",
+            "email_verified", "email_verification_token_hash", "email_verification_expires_at",
+            "password_reset_token_hash", "password_reset_expires_at"
+        ]
+        
+        faltam = [c for c in necessarias if c not in colunas]
+        
+        if faltam:
+            return f"ERRO: Faltam colunas: {faltam}. Ejecute: python migrate.py", 500
+        
+        return f"OK: Todas as colunas existem. Total: {len(colunas)} colunas. {colunas}"
+    except Exception as e:
+        return f"ERRO ao verificar colunas: {e}", 500
+
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -671,21 +714,28 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form.get("email")
-        password = request.form.get("password")
+        try:
+            email = request.form.get("email")
+            password = request.form.get("password")
 
-        user = User.query.filter_by(email=email).first()
+            user = User.query.filter_by(email=email).first()
 
-        if not user or not check_password_hash(user.password, password):
-            flash("Usuário ou senha inválidos")
+            if not user or not check_password_hash(user.password, password):
+                flash("Usuário ou senha inválidos")
+                return redirect(url_for("login"))
+
+            if not user.email_verified:
+                flash("Confirme seu e-mail antes de entrar.")
+                return redirect(url_for("resend_confirmation", email=email))
+
+            login_user(user)
+            return redirect(url_for("projetos"))
+        except Exception as e:
+            print(f"[ERROR] Erro no login: {e}")
+            import traceback
+            traceback.print_exc()
+            flash("Erro ao fazer login. Tente novamente.")
             return redirect(url_for("login"))
-
-        if not user.email_verified:
-            flash("Confirme seu e-mail antes de entrar.")
-            return redirect(url_for("resend_confirmation", email=email))
-
-        login_user(user)
-        return redirect(url_for("projetos"))
 
     return render_template("login.html")
 
